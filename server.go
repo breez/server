@@ -306,6 +306,55 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 	return &breez.AddFundStatusReply{Statuses: statuses}, nil
 }
 
+func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
+	redisConn := redisPool.Get()
+	m, err := redis.StringMap(redisConn.Do("HGETALL", "input-address:"+in.Address))
+	if err != nil {
+		log.Println("GetPayment error:", err)
+		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
+	}
+
+	//ensure we didn't pay this invoice before
+	preImage := m["payment:PaymentPreimage"]
+	if len(preImage) > 0 {
+		return nil, status.Errorf(codes.Internal, "payment already sent")
+	}
+
+	//ensure we have a payment request and the transactino amount
+	paymentRequest := m["paymentRequest"]
+	if len(paymentRequest) == 0 {
+		return nil, status.Errorf(codes.Internal, "payment request not found")
+	}
+	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
+	if err != nil || amt == 0 {
+		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
+	}
+
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
+	if err != nil {
+		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, err)
+		return nil, status.Errorf(codes.Internal, "failed to send payment")
+	}
+
+	if len(sendResponse.PaymentError) > 0 {
+		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, sendResponse.PaymentError)
+	} else {
+		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
+			"payment:PaymentPreimage", sendResponse.PaymentPreimage,
+		)
+		if err != nil {
+			log.Printf("handleTransactionAddress error in HSET preimage for %v: Preimage: %v: %v", in.Address, hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
+		}
+		_, err = redisConn.Do("SREM", "fund-addresses", in.Address)
+		if err != nil {
+			log.Printf("handleTransactionAddress error in SREM %v from fund-addresses: %v", in.Address, err)
+		}
+	}
+
+	return &breez.GetPaymentReply{PaymentError: sendResponse.PaymentError}, nil
+}
+
 func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
 	//TODO
 	return nil, nil

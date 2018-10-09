@@ -34,6 +34,7 @@ service FundManager {
   rpc AddFund (AddFundRequest) returns (AddFundReply) {}
   rpc AddFundStatus (AddFundStatusRequest) returns (AddFundStatusReply) {}
   rpc RemoveFund (RemoveFundRequest) returns (RemoveFundReply) {}
+  rpc GetPayment (GetPaymentRequest) returns (GetPaymentReply) {}
 }
 
 message OpenChannelRequest {
@@ -104,6 +105,15 @@ message FundReply {
     WRONG_AMOUNT = -5;
   }
   ReturnCode returnCode = 1;
+}
+
+message GetPaymentRequest {
+  string paymentRequest = 1;
+  string address = 2;
+}
+
+message GetPaymentReply {
+  string paymentError = 1;
 }
 
 // The request message containing the device id and lightning id
