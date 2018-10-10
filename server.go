@@ -329,6 +329,9 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 	if err != nil || amt <= 0 {
 		return nil, status.Errorf(codes.Internal, "on-chain funds are not confirmred yet")
 	}
+	if amt > userAmountMax {
+		return nil, status.Error(codes.Internal, "on-chain funds exceeded user limit")
+	}
 
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
