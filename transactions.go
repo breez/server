@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"io"
 	"log"
 	"os"
@@ -180,55 +179,5 @@ func handleTransactionAddress(tx *lnrpc.Transaction, index int) error {
 		log.Println("handleTransactionAddress error:", err)
 		return err
 	}
-	paymentRequest, err := redis.String(redisConn.Do("HGET", "input-address:"+tx.DestAddresses[index], "paymentRequest"))
-	if err != nil {
-		log.Println("handleTransactionAddress error:", err)
-		return err
-	}
-	amt := tx.Amount
-	if amt > userAmountMax {
-		amt = userAmountMax
-	}
-	go func() {
-		redisConn := redisPool.Get()
-		defer redisConn.Close()
-		paid := false
-		for i := 0; !paid; i++ {
-			if i > 0 {
-				time.Sleep(2 * time.Second)
-			}
-			n, err := redis.Int(redisConn.Do("SISMEMBER", "fund-addresses", tx.DestAddresses[index]))
-			if err != nil {
-				log.Println("SISMEMBER before SendPaymentSync error:", err)
-				continue
-			}
-			if n == 0 {
-				break
-			}
-			clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-			sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
-			if err != nil {
-				log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", tx.DestAddresses[index], paymentRequest, amt, err)
-			} else {
-				if sendResponse.PaymentError != "" {
-					log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", tx.DestAddresses[index], paymentRequest, amt, sendResponse.PaymentError)
-				} else {
-					paid = true
-				}
-			}
-			if paid {
-				_, err = redisConn.Do("HSET", "input-address:"+tx.DestAddresses[index],
-					"payment:PaymentPreimage", sendResponse.PaymentPreimage,
-				)
-				if err != nil {
-					log.Printf("handleTransactionAddress error in HSET preimage for %v: Preimage: %v: %v", tx.DestAddresses[index], hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
-				}
-				_, err = redisConn.Do("SREM", "fund-addresses", tx.DestAddresses[index])
-				if err != nil {
-					log.Printf("handleTransactionAddress error in SREM %v from fund-addresses: %v", tx.DestAddresses[index], err)
-				}
-			}
-		}
-	}()
 	return nil
 }
