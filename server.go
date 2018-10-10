@@ -337,7 +337,7 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
-	if sendResponse.PaymentError == "" {
+	if sendResponse.PaymentError != "" {
 		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, sendResponse.PaymentError)
 	} else {
 		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
