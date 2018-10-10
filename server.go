@@ -322,11 +322,11 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 
 	//ensure we have a payment request and the transactino amount
 	paymentRequest := m["paymentRequest"]
-	if len(paymentRequest) == 0 {
+	if paymentRequest == "" {
 		return nil, status.Errorf(codes.Internal, "payment request not found")
 	}
 	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
-	if err != nil || amt == 0 {
+	if err != nil || amt <= 0 {
 		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
 	}
 
@@ -337,7 +337,7 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
-	if len(sendResponse.PaymentError) > 0 {
+	if sendResponse.PaymentError == "" {
 		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, sendResponse.PaymentError)
 	} else {
 		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
