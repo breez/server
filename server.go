@@ -316,7 +316,7 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 
 	//ensure we didn't pay this invoice before
 	preImage := m["payment:PaymentPreimage"]
-	if len(preImage) > 0 {
+	if preImage != "" {
 		return nil, status.Errorf(codes.Internal, "payment already sent")
 	}
 
@@ -327,7 +327,7 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 	}
 	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
 	if err != nil || amt <= 0 {
-		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
+		return nil, status.Errorf(codes.Internal, "on-chain funds are not confirmred yet")
 	}
 
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
