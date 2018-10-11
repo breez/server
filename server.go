@@ -36,7 +36,7 @@ import (
 const (
 	imageDimensionLength = 200
 	channelAmount        = 1000000
-	userAmountMax        = 500000
+	maxNodeLocalBalance  = 500000
 )
 
 var client lnrpc.LightningClient
@@ -222,17 +222,11 @@ func (s *server) MempoolRegister(ctx context.Context, in *breez.MempoolRegisterR
 
 func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	listResponse, err := client.ListChannels(clientCtx, &lnrpc.ListChannelsRequest{})
+	nodeChannels, err := getNodeChannels(in.PubKey)
 	if err != nil {
 		return nil, err
 	}
-	channels := 0
-	for _, channel := range listResponse.Channels {
-		if channel.RemotePubkey == in.PubKey {
-			channels++
-		}
-	}
-	if channels == 0 {
+	if len(nodeChannels) == 0 {
 		response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
 			NodePubkeyString: in.PubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
 		log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
@@ -303,7 +297,16 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 			statuses[address] = s
 		}
 	}
+
 	return &breez.AddFundStatusReply{Statuses: statuses}, nil
+}
+
+func (s *server) GetMaxAllowedDeposit(ctx context.Context, in *breez.GetMaxAllowedDepositRequest) (*breez.GetMaxAllowedDepositReply, error) {
+	amt, err := getMaxAllowedDeposit(in.LightningID)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.GetMaxAllowedDepositReply{MaxAmount: amt}, nil
 }
 
 func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
@@ -329,11 +332,21 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 	if err != nil || amt <= 0 {
 		return nil, status.Errorf(codes.Internal, "on-chain funds are not confirmred yet")
 	}
-	if amt > userAmountMax {
-		return nil, status.Error(codes.Internal, "on-chain funds exceeds account limit")
-	}
 
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: paymentRequest})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "payment request is not valid")
+	}
+	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+	if amt > maxAllowedDeposit {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("deposit amount: %v is greater than max allowed: %v", amt, maxAllowedDeposit))
+	}
+	log.Printf("paying node %v amt = %v, maxAllowed = %v", payReq.Destination, amt, maxAllowedDeposit)
+
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
 	if err != nil {
 		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, err)
@@ -367,6 +380,40 @@ func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*
 func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.OrderReply, error) {
 	log.Println("Order a card for:", *in)
 	return &breez.OrderReply{}, nil
+}
+
+//Calculate the max allowed deposit for a node
+func getMaxAllowedDeposit(nodeID string) (int64, error) {
+	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
+	maxAllowedToDeposit := int64(maxNodeLocalBalance)
+	nodeChannels, err := getNodeChannels(nodeID)
+	if err != nil {
+		return 0, err
+	}
+	var nodeLocalBalance int64
+	for _, ch := range nodeChannels {
+		nodeLocalBalance += ch.RemoteBalance
+	}
+	maxAllowedToDeposit = maxNodeLocalBalance - nodeLocalBalance
+	if maxAllowedToDeposit < 0 {
+		maxAllowedToDeposit = 0
+	}
+	return maxAllowedToDeposit, nil
+}
+
+func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	listResponse, err := client.ListChannels(clientCtx, &lnrpc.ListChannelsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	var nodeChannels []*lnrpc.Channel
+	for _, channel := range listResponse.Channels {
+		if channel.RemotePubkey == nodeID {
+			nodeChannels = append(nodeChannels, channel)
+		}
+	}
+	return nodeChannels, nil
 }
 
 func main() {
