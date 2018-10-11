@@ -301,12 +301,12 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 	return &breez.AddFundStatusReply{Statuses: statuses}, nil
 }
 
-func (s *server) GetMaxAllowedDeposit(ctx context.Context, in *breez.GetMaxAllowedDepositRequest) (*breez.GetMaxAllowedDepositReply, error) {
+func (s *server) GetFundLimits(ctx context.Context, in *breez.GetFundLimitsRequest) (*breez.GetFundLimitsReply, error) {
 	amt, err := getMaxAllowedDeposit(in.LightningID)
 	if err != nil {
 		return nil, err
 	}
-	return &breez.GetMaxAllowedDepositReply{MaxAmount: amt}, nil
+	return &breez.GetFundLimitsReply{MaxDepositAmount: amt, MaxLocalBalance: maxNodeLocalBalance}, nil
 }
 
 func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
