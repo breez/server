@@ -34,9 +34,9 @@ import (
 )
 
 const (
-	imageDimensionLength = 200
-	channelAmount        = 1000000
-	maxNodeLocalBalance  = 500000
+	imageDimensionLength    = 200
+	channelAmount           = 1000000
+	depositBalanceThreshold = 500000
 )
 
 var client lnrpc.LightningClient
@@ -306,7 +306,7 @@ func (s *server) GetFundLimits(ctx context.Context, in *breez.GetFundLimitsReque
 	if err != nil {
 		return nil, err
 	}
-	return &breez.GetFundLimitsReply{MaxDepositAmount: amt, MaxLocalBalance: maxNodeLocalBalance}, nil
+	return &breez.GetFundLimitsReply{MaxDepositAmount: amt, DepositBalanceThreshold: depositBalanceThreshold}, nil
 }
 
 func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
@@ -385,7 +385,7 @@ func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.Orde
 //Calculate the max allowed deposit for a node
 func getMaxAllowedDeposit(nodeID string) (int64, error) {
 	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
-	maxAllowedToDeposit := int64(maxNodeLocalBalance)
+	maxAllowedToDeposit := int64(depositBalanceThreshold)
 	nodeChannels, err := getNodeChannels(nodeID)
 	if err != nil {
 		return 0, err
@@ -394,7 +394,7 @@ func getMaxAllowedDeposit(nodeID string) (int64, error) {
 	for _, ch := range nodeChannels {
 		nodeLocalBalance += ch.RemoteBalance
 	}
-	maxAllowedToDeposit = maxNodeLocalBalance - nodeLocalBalance
+	maxAllowedToDeposit = depositBalanceThreshold - nodeLocalBalance
 	if maxAllowedToDeposit < 0 {
 		maxAllowedToDeposit = 0
 	}
