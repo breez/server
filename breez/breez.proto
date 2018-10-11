@@ -35,6 +35,7 @@ service FundManager {
   rpc AddFundStatus (AddFundStatusRequest) returns (AddFundStatusReply) {}
   rpc RemoveFund (RemoveFundRequest) returns (RemoveFundReply) {}
   rpc GetPayment (GetPaymentRequest) returns (GetPaymentReply) {}
+  rpc GetMaxAllowedDeposit(GetMaxAllowedDepositRequest) returns (GetMaxAllowedDepositReply) {}
 }
 
 message OpenChannelRequest {
@@ -64,7 +65,15 @@ message AddFundStatusReply {
     bool confirmed = 3;
     string blockHash = 4;
   }
-  map<string, AddressStatus> statuses = 1;
+  map<string, AddressStatus> statuses = 1;  
+}
+
+message GetMaxAllowedDepositRequest {
+  string lightningID = 1;
+}
+
+message GetMaxAllowedDepositReply {
+  int64 maxAmount = 1;
 }
 
 message RemoveFundRequest {
