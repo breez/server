@@ -242,14 +242,15 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 
 	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "Payment request is not valid")
+		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
 	}
 	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
+
 	if maxAllowedDeposit == 0 {
-		return nil, status.Errorf(codes.FailedPrecondition, "Adding funds is enabled when the balance is under %v", depositBalanceThreshold)
+		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v", depositBalanceThreshold)}, nil
 	}
 
 	newAddrResp, err := client.NewWitnessAddress(clientCtx, &lnrpc.NewWitnessAddressRequest{})
