@@ -239,6 +239,19 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 
 func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+
+	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "Payment request is not valid")
+	}
+	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+	if maxAllowedDeposit == 0 {
+		return nil, status.Errorf(codes.FailedPrecondition, "Adding funds is enabled when the balance is under %v", depositBalanceThreshold)
+	}
+
 	newAddrResp, err := client.NewWitnessAddress(clientCtx, &lnrpc.NewWitnessAddressRequest{})
 	if err != nil {
 		return nil, err
@@ -259,7 +272,7 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	if err != nil {
 		return nil, err
 	}
-	return &breez.AddFundReply{Address: address}, nil
+	return &breez.AddFundReply{Address: address, MaxAllowedDeposit: maxAllowedDeposit}, nil
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
@@ -299,14 +312,6 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 	}
 
 	return &breez.AddFundStatusReply{Statuses: statuses}, nil
-}
-
-func (s *server) GetFundLimits(ctx context.Context, in *breez.GetFundLimitsRequest) (*breez.GetFundLimitsReply, error) {
-	amt, err := getMaxAllowedDeposit(in.LightningID)
-	if err != nil {
-		return nil, err
-	}
-	return &breez.GetFundLimitsReply{MaxDepositAmount: amt, DepositBalanceThreshold: depositBalanceThreshold}, nil
 }
 
 func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
