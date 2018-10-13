@@ -50,6 +50,8 @@ message AddFundRequest {
 
 message AddFundReply {
   string address = 1;
+  int64 maxAllowedDeposit = 2;
+  string errorMessage = 3;
 }
 
 message AddFundStatusRequest {
@@ -64,7 +66,7 @@ message AddFundStatusReply {
     bool confirmed = 3;
     string blockHash = 4;
   }
-  map<string, AddressStatus> statuses = 1;
+  map<string, AddressStatus> statuses = 1;  
 }
 
 message RemoveFundRequest {
