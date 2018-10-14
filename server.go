@@ -22,6 +22,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/NaySoftware/go-fcm"
 	"github.com/breez/lightninglib/lnrpc"
+	submarine "github.com/breez/submarinelib"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/gomodule/redigo/redis"
 	"google.golang.org/api/option"
@@ -203,30 +204,24 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 }
 
 func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-
-	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
-	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
-	}
-	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
-	}
-
-	if maxAllowedDeposit == 0 {
-		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v", depositBalanceThreshold)}, nil
-	}
-
-	newAddrResp, err := client.NewWitnessAddress(clientCtx, &lnrpc.NewWitnessAddressRequest{})
+	chainPublicKey, chainPrivateKey, err := submarine.GenPublicPrivateKeypair()
 	if err != nil {
 		return nil, err
 	}
-	address := newAddrResp.Address
 
+	// Create a script with our and client's data
+	script, err := submarine.GenSubmarineSwapScript(chainPublicKey, in.ChainPublicKey, in.LightningPublicKey, 600)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now it's time to create a nice address
+	address := submarine.GenBase58Address(script, network)
+
+	// Save everything
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
-	_, err = redisConn.Do("HMSET", "input-address:"+address, "paymentRequest", in.PaymentRequest)
+	_, err = redisConn.Do("HMSET", "input-address:"+address, "clientChainPublicKey", in.ChainPublicKey, "clientLightningPublicKey", in.LightningPublicKey, "ourChainPrivateKey", chainPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +233,7 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	if err != nil {
 		return nil, err
 	}
-	return &breez.AddFundReply{Address: address, MaxAllowedDeposit: maxAllowedDeposit}, nil
+	return &breez.AddFundReply{Address: address, ChainPublicKey: chainPublicKey, MaxAllowedDeposit: maxAllowedDeposit}, nil
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
