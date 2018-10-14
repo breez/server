@@ -25,10 +25,6 @@ service Information {
   rpc Ping (PingRequest) returns (PingReply) {}
 }
 
-service MempoolNotifier {
-  rpc MempoolRegister (MempoolRegisterRequest) returns (MempoolRegisterReply) {}
-}
-
 service FundManager {
   rpc OpenChannel (OpenChannelRequest) returns (OpenChannelReply) {}
   rpc AddFund (AddFundRequest) returns (AddFundReply) {}
@@ -75,20 +71,6 @@ message RemoveFundRequest {
 }
 
 message RemoveFundReply {
-}
-
-message MempoolRegisterRequest {
-  string clientID = 1;
-  repeated string addresses = 2;
-}
-
-message MempoolRegisterReply {
-  message Transaction {
-      string TX = 1;
-      string Address = 2;
-      double Value = 3;
-  }
-  repeated Transaction TXS = 1;
 }
 
 message FundRequest {

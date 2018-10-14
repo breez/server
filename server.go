@@ -185,41 +185,6 @@ func (s *server) UploadLogo(ctx context.Context, in *breez.UploadFileRequest) (*
 	return &breez.UploadFileReply{Url: objAttrs.MediaLink}, nil
 }
 
-func (s *server) MempoolRegister(ctx context.Context, in *breez.MempoolRegisterRequest) (*breez.MempoolRegisterReply, error) {
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-	for _, a := range in.Addresses {
-		redisConn.Do("SET", "address:"+a, in.ClientID, "EX", 24*3600)
-	}
-	var txs []*breez.MempoolRegisterReply_Transaction
-	for _, a := range in.Addresses {
-		_ = a
-		transactions, err := redis.Strings(redisConn.Do("SMEMBERS", "transactions:"+a))
-		if err == nil {
-			for _, transaction := range transactions {
-				m, err := redis.StringMap(redisConn.Do("HGETALL", transaction))
-				if err == nil {
-					if m["clientID"] == in.ClientID {
-						if value, err := strconv.ParseFloat(m["value"], 64); err == nil {
-							tx := &breez.MempoolRegisterReply_Transaction{
-								TX:      m["tx"],
-								Address: m["address"],
-								Value:   value,
-							}
-							txs = append(txs, tx)
-						}
-					}
-				} else if err != redis.ErrNil {
-					log.Println("Error in HMGET")
-				}
-			}
-		} else if err != redis.ErrNil {
-			log.Println("Error in SMEMEMBERS:", err)
-		}
-	}
-	return &breez.MempoolRegisterReply{TXS: txs}, nil
-}
-
 func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	nodeChannels, err := getNodeChannels(in.PubKey)
@@ -460,11 +425,6 @@ func main() {
 		log.Println("redisConnect error:", err)
 	}
 
-	err = btcdConnect()
-	if err != nil {
-		log.Println("btcdConnect error:", err)
-	}
-
 	go notify()
 
 	s := grpc.NewServer()
@@ -473,7 +433,6 @@ func main() {
 	breez.RegisterPosServer(s, &server{})
 	breez.RegisterInformationServer(s, &server{})
 	breez.RegisterCardOrdererServer(s, &server{})
-	breez.RegisterMempoolNotifierServer(s, &server{})
 	breez.RegisterFundManagerServer(s, &server{})
 
 	// Register reflection service on gRPC server.
