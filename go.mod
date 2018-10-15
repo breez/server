@@ -9,7 +9,7 @@ require (
 	github.com/breez/lightninglib v0.0.0-20180914104818-04fdcb693b99
 	github.com/breez/submarinelib v0.0.0-20181007204205-01afefac5763
 	github.com/btcsuite/btcd v0.0.0-20180903232927-cff30e1d23fc
-	github.com/btcsuite/btcwallet v0.0.0-20180913034130-421298df2260
+	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/cosiner/argv v0.0.0-20170225145430-13bacc38a0a5 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20180509164333-3813a62570d2 // indirect
 	github.com/derekparker/delve v1.1.0 // indirect

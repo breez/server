@@ -99,27 +99,29 @@ func handleTransaction(tx *lnrpc.Transaction) error {
 			log.Println("handleTransaction error:", err)
 			return err
 		}
+		amt := strconv.FormatInt(tx.Amount, 10)
 		if n > 0 {
+			// Mark the amount and tell the user to pay us that much
 			if tx.NumConfirmations > 0 {
 				err = handleTransactionAddress(tx, i)
 				if err != nil {
 					return err
 				}
-				go notifyClientTransaction(tx, i, "Confirmed transaction", "Breez", "Funds added to Breez are now confirmed. Please open the app to complete your setup.")
+				go notifyClientTransaction(tx, i, "Confirmed transaction", "Breez", amt+ " sat added to Breez are now confirmed. Please open the app to complete the transaction.")
 				break // There is only one address concerning us per transaction
 			} else {
 				redisConn := redisPool.Get()
 				defer redisConn.Close()
 				_, err := redisConn.Do("HMSET", "input-address:"+tx.DestAddresses[i],
-					"utx:TxHash", tx.TxHash,
-					"utx:Amount", tx.Amount,
+					"utx:TxHash",    tx.TxHash,
+					"utx:Amount",    tx.Amount,
+					"utx:TotalFees", tx.TotalFees,
 				)
 				if err != nil {
 					log.Println("handleTransaction error:", err)
 					return err
 				}
-				amt := strconv.FormatInt(tx.Amount, 10)
-				go notifyClientTransaction(tx, i, "Unconfirmed transaction", "Breez", "Breez is waiting for "+amt+" sat to be confirmed. Confirmation usually takes ~10 minutes to be completed.")
+				go notifyClientTransaction(tx, i, "Unconfirmed transaction", "Breez", "Breez is waiting for "+amt+" sat to be confirmed. Please open the app to complete the transaction.")
 				break
 			}
 		}

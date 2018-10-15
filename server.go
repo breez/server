@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"github.com/btcsuite/btcutil"
 	"image/png"
 	"log"
 	"net"
@@ -204,13 +205,23 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 }
 
 func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
+
+	maxAllowedDeposit, err := getMaxAllowedDeposit(in.LightningNodeId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+
+	if maxAllowedDeposit == 0 {
+		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v", depositBalanceThreshold)}, nil
+	}
+
 	chainPublicKey, chainPrivateKey, err := submarine.GenPublicPrivateKeypair()
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a script with our and client's data
-	script, err := submarine.GenSubmarineSwapScript(chainPublicKey, in.ChainPublicKey, in.LightningPublicKey, 600)
+	script, err := submarine.GenSubmarineSwapScript(chainPublicKey, in.ChainPublicKey, in.PaymentHash, int64(72))
 	if err != nil {
 		return nil, err
 	}
@@ -218,10 +229,17 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	// Now it's time to create a nice address
 	address := submarine.GenBase58Address(script, network)
 
+	// Make ligtninglib monitor the address
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	_, err = client.WatchAddress(clientCtx, &lnrpc.WatchAddressRequest{Address: address})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "couldn't add address to watchlist")
+	}
+
 	// Save everything
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
-	_, err = redisConn.Do("HMSET", "input-address:"+address, "clientChainPublicKey", in.ChainPublicKey, "clientLightningPublicKey", in.LightningPublicKey, "ourChainPrivateKey", chainPrivateKey)
+	_, err = redisConn.Do("HMSET", "input-address:"+address, "clientChainPublicKey", in.ChainPublicKey, "clientLightningPublicKey", in.PaymentHash, "ourChainPrivateKey", chainPrivateKey, "serializedScript", script)
 	if err != nil {
 		return nil, err
 	}
@@ -289,18 +307,18 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 		return nil, status.Errorf(codes.Internal, "payment already sent")
 	}
 
-	//ensure we have a payment request and the transactino amount
-	paymentRequest := m["paymentRequest"]
-	if paymentRequest == "" {
-		return nil, status.Errorf(codes.Internal, "payment request not found")
-	}
 	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
 	if err != nil || amt <= 0 {
 		return nil, status.Errorf(codes.Internal, "on-chain funds are not confirmred yet")
 	}
 
+	fee, err := strconv.ParseInt(m["utx:TotalFee"], 10, 64)
+	if err != nil {
+		fee = 0
+	}
+
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: paymentRequest})
+	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "payment request is not valid")
 	}
@@ -313,24 +331,54 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 	}
 	log.Printf("paying node %v amt = %v, maxAllowed = %v", payReq.Destination, amt, maxAllowedDeposit)
 
-	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
+	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest, Amt: amt})
 	if err != nil {
-		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, err)
+		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, in.PaymentRequest, amt, err)
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
 	if sendResponse.PaymentError != "" {
-		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, sendResponse.PaymentError)
+		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, in.PaymentRequest, amt, sendResponse.PaymentError)
 	} else {
+		// Save the preimage to make sure we don't pay the same invoice again
 		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
 			"payment:PaymentPreimage", sendResponse.PaymentPreimage,
 		)
 		if err != nil {
 			log.Printf("handleTransactionAddress error in HSET preimage for %v: Preimage: %v: %v", in.Address, hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
 		}
+
 		_, err = redisConn.Do("SREM", "fund-addresses", in.Address)
 		if err != nil {
 			log.Printf("handleTransactionAddress error in SREM %v from fund-addresses: %v", in.Address, err)
+		}
+
+		// Get a new wallet address to redeem the swap funds to
+		addressResponse, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
+		if err != nil {
+			log.Printf("couldn't issue a new address from the lightning wallet: %v", err)
+		}
+
+		redeemAddress, err := btcutil.DecodeAddress(addressResponse.Address, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		txHash, _ := hex.DecodeString(m["tx:TxHash"])
+
+		var txHashArray [32]byte
+		copy(txHashArray[:], txHash[0:32])
+
+		// Make a redeem transaction
+		redeemTx, err := submarine.GetRedeemTransaction(amt, fee, txHashArray, []byte(m["serializedScript"]), []byte(m["ourChainPrivateKey"]), sendResponse.PaymentPreimage, redeemAddress)
+		if err != nil {
+			log.Printf("couldn't make the redeem transaction: %v", err)
+		}
+
+		// Broadcast the redeem transaction to network at large
+		_, err = client.SendRawTx(clientCtx, &lnrpc.SendRawTxRequest{Hextx: redeemTx})
+		if err != nil {
+			log.Printf("couldn't broadcast redeem transaction: %v", err)
 		}
 	}
 

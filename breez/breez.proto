@@ -40,9 +40,10 @@ message OpenChannelRequest {
 message OpenChannelReply {}
 
 message AddFundRequest {
-  bytes lightningPublicKey = 1;
+  bytes paymentHash = 1;
   bytes chainPublicKey = 2;
   string notificationToken = 3;
+  string lightningNodeId = 4;
 }
 
 message AddFundReply {
