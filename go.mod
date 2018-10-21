@@ -5,6 +5,7 @@ require (
 	cloud.google.com/go v0.26.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
 	github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17
+	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
 	github.com/acroca/go-symbols v0.0.0-20180523203557-953befd75e22 // indirect
 	github.com/breez/lightninglib v0.0.0-20180914104818-04fdcb693b99
 	github.com/btcsuite/btcd v0.0.0-20180903232927-cff30e1d23fc

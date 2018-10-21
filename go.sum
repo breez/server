@@ -9,6 +9,8 @@ github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17 h1:B1AsIv1Ms6Ju
 github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17/go.mod h1:3qVrdgWvoMZMoRG+/nusrCNrcP4RYU4MWGv467XjqLI=
 github.com/NebulousLabs/fastrand v0.0.0-20180208210444-3cf7173006a0/go.mod h1:Bdzq+51GR4/0DIhaICZEOm+OHvXGwwB2trKZ8B4Y6eQ=
 github.com/NebulousLabs/go-upnp v0.0.0-20180202185039-29b680b06c82/go.mod h1:GbuBk21JqF+driLX3XtJYNZjGa45YDoa9IqCTzNSfEc=
+github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d h1:hEc8NSjCFs9gJw/RXGYq/wbSMbukvgrKn9QeWSN7vI0=
+github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d/go.mod h1:cyhfMSqkHlBoIxTiOMm1iTK9Xsqwohvp4tViuhO1cG8=
 github.com/Yawning/aez v0.0.0-20180114000226-4dad034d9db2/go.mod h1:9pIqrY6SXNL8vjRQE5Hd/OL5GyK/9MrGUWs87z/eFfk=
 github.com/acroca/go-symbols v0.0.0-20180523203557-953befd75e22 h1:Lfw7U4QD/rq1M7QEOcj5uttr9pybuV6YS6w6OeCN3yc=
 github.com/acroca/go-symbols v0.0.0-20180523203557-953befd75e22/go.mod h1:RKAIDWtcELAw6/wjNJGWRYZ7QEinSWoJeJ2H5cfK6AM=
