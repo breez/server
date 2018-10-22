@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/breez/server/breez"
+	"golang.org/x/text/message"
 
 	"cloud.google.com/go/storage"
 	"github.com/NaySoftware/go-fcm"
@@ -215,7 +216,10 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	}
 
 	if maxAllowedDeposit == 0 {
-		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v", depositBalanceThreshold)}, nil
+		p := message.NewPrinter(message.MatchLanguage("en"))
+		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
+		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
+		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat)", btcFormatted, satFormatted)}, nil
 	}
 
 	newAddrResp, err := client.NewWitnessAddress(clientCtx, &lnrpc.NewWitnessAddressRequest{})
