@@ -222,7 +222,7 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat)", btcFormatted, satFormatted)}, nil
 	}
 
-	newAddrResp, err := client.NewWitnessAddress(clientCtx, &lnrpc.NewWitnessAddressRequest{})
+	newAddrResp, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
 	if err != nil {
 		return nil, err
 	}
