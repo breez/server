@@ -222,7 +222,7 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 		p := message.NewPrinter(message.MatchLanguage("en"))
 		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
 		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
-		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat)", btcFormatted, satFormatted)}, nil
+		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
 	}
 
 	newAddrResp, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
@@ -370,7 +370,7 @@ func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*
 		p := message.NewPrinter(message.MatchLanguage("en"))
 		satFormatted := strings.Replace(p.Sprintf("%d", minRemoveFund), ",", " ", 1)
 		btcFormatted := strconv.FormatFloat(float64(minRemoveFund)/float64(100000000), 'f', -1, 64)
-		errorStr := fmt.Sprintf("Removed funds must be more than  %v BTC (%v Sat)", btcFormatted, satFormatted)
+		errorStr := fmt.Sprintf("Removed funds must be more than  %v BTC (%v Sat).", btcFormatted, satFormatted)
 		return &breez.RemoveFundReply{ErrorMessage: errorStr}, nil
 	}
 
