@@ -371,7 +371,7 @@ func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*
 		satFormatted := strings.Replace(p.Sprintf("%d", minRemoveFund), ",", " ", 1)
 		btcFormatted := strconv.FormatFloat(float64(minRemoveFund)/float64(100000000), 'f', -1, 64)
 		errorStr := fmt.Sprintf("Removed funds must be more than  %v BTC (%v Sat)", btcFormatted, satFormatted)
-		return &breez.RemoveFundReply{ErrorMessage: errorStr}, errors.New(errorStr)
+		return &breez.RemoveFundReply{ErrorMessage: errorStr}, nil
 	}
 
 	paymentRequest, err := createRemoveFundPaymentRequest(amount, address)
