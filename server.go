@@ -40,7 +40,7 @@ const (
 	imageDimensionLength    = 200
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
-	removeFundTimeout       = 3600
+	minRemoveFund           = depositBalanceThreshold / 10
 )
 
 var client lnrpc.LightningClient
@@ -351,6 +351,7 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 
 func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
 	address := in.Address
+	amount := in.Amount
 	if address == "" {
 		return nil, errors.New("Destination address must not be empty")
 	}
@@ -361,11 +362,19 @@ func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*
 		return nil, err
 	}
 
-	if in.Amount <= 0 {
+	if amount <= 0 {
 		return nil, errors.New("Amount must be positive")
 	}
 
-	paymentRequest, err := createRemoveFundPaymentRequest(in.Amount, address)
+	if amount < minRemoveFund {
+		p := message.NewPrinter(message.MatchLanguage("en"))
+		satFormatted := strings.Replace(p.Sprintf("%d", minRemoveFund), ",", " ", 1)
+		btcFormatted := strconv.FormatFloat(float64(minRemoveFund)/float64(100000000), 'f', -1, 64)
+		errorStr := fmt.Sprintf("Removed funds must be more than  %v BTC (%v Sat)", btcFormatted, satFormatted)
+		return &breez.RemoveFundReply{ErrorMessage: errorStr}, errors.New(errorStr)
+	}
+
+	paymentRequest, err := createRemoveFundPaymentRequest(amount, address)
 	if err != nil {
 		log.Printf("createRemoveFundPaymentRequest: failed %v", err)
 		return nil, err

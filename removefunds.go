@@ -13,6 +13,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const (
+	removeFundTimeout = 3600
+)
+
 var payReqGroup singleflight.Group
 
 func createRemoveFundPaymentRequest(amount int64, address string) (string, error) {
