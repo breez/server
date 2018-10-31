@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image/png"
 	"log"
@@ -24,6 +25,7 @@ import (
 	"github.com/NaySoftware/go-fcm"
 	"github.com/breez/lightninglib/lnrpc"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -38,6 +40,7 @@ const (
 	imageDimensionLength    = 200
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
+	removeFundTimeout       = 3600
 )
 
 var client lnrpc.LightningClient
@@ -347,8 +350,37 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 }
 
 func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
-	//TODO
-	return nil, nil
+	address := in.Address
+	if address == "" {
+		return nil, errors.New("Destination address must not be empty")
+	}
+
+	_, err := btcutil.DecodeAddress(address, network)
+	if err != nil {
+		log.Println("Destination address must be a valid bitcoin address")
+		return nil, err
+	}
+
+	if in.Amount <= 0 {
+		return nil, errors.New("Amount must be positive")
+	}
+
+	paymentRequest, err := createRemoveFundPaymentRequest(in.Amount, address)
+	if err != nil {
+		log.Printf("createRemoveFundPaymentRequest: failed %v", err)
+		return nil, err
+	}
+
+	return &breez.RemoveFundReply{PaymentRequest: paymentRequest}, nil
+}
+
+func (s *server) RedeemRemovedFunds(ctx context.Context, in *breez.RedeemRemovedFundsRequest) (*breez.RedeemRemovedFundsReply, error) {
+	txID, err := ensureOnChainPaymentSent(in.Paymenthash)
+	if err != nil {
+		log.Printf("ReceiveOnChainPayment failed: %v", err)
+		return nil, err
+	}
+	return &breez.RedeemRemovedFundsReply{Txid: txID}, nil
 }
 
 // RegisterDevice implements breez.InvoicerServer

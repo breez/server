@@ -35,3 +35,26 @@ func redisConnect() error {
 
 	return nil
 }
+
+func updateKeyFields(key string, fields map[string]string) error {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	var args []interface{}
+	args = append(args, key)
+	for k, value := range fields {
+		args = append(args, k)
+		args = append(args, value)
+	}
+	_, err := redisConn.Do("HMSET", args...)
+	return err
+}
+
+func getKeyFields(key string) (map[string]string, error) {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	res, err := redis.StringMap(redisConn.Do("HGETALL", key))
+	if err == redis.ErrNil {
+		return nil, nil
+	}
+	return res, err
+}
