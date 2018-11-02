@@ -206,14 +206,10 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 	return &breez.OpenChannelReply{}, nil
 }
 
-func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
+func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 
-	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
-	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
-	}
-	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
+	maxAllowedDeposit, err := getMaxAllowedDeposit(in.NodeID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
@@ -222,18 +218,21 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 		p := message.NewPrinter(message.MatchLanguage("en"))
 		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
 		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
-		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
+		return &breez.AddFundInitReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
 	}
 
-	newAddrResp, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
+	subSwapServiceInitResponse, err := client.SubSwapServiceInit(clientCtx, &lnrpc.SubSwapServiceInitRequest{
+		Hash: in.Hash,
+		Pubkey: in.Pubkey,
+	})
 	if err != nil {
 		return nil, err
 	}
-	address := newAddrResp.Address
 
+	address := subSwapServiceInitResponse.Address
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
-	_, err = redisConn.Do("HMSET", "input-address:"+address, "paymentRequest", in.PaymentRequest)
+	_, err = redisConn.Do("HMSET", "input-address:"+address, "hash", in.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +244,25 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	if err != nil {
 		return nil, err
 	}
-	return &breez.AddFundReply{Address: address, MaxAllowedDeposit: maxAllowedDeposit}, nil
+	return &breez.AddFundInitReply{
+		Address: address,
+		MaxAllowedDeposit: maxAllowedDeposit,
+		Pubkey: subSwapServiceInitResponse.Pubkey,
+		LockHeight: subSwapServiceInitResponse.LockHeight,
+		}, nil
+}
+
+
+func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+
+	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
+	}
+	_ = payReq
+	//TODO: make the payment after the needed verifications
+	return &breez.AddFundReply{}, nil
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
