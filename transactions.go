@@ -174,6 +174,7 @@ func handleTransactionAddress(tx *lnrpc.Transaction, index int) error {
 		"tx:TxHash", tx.TxHash,
 		"tx:Amount", tx.Amount,
 		"tx:BlockHash", tx.BlockHash,
+		"tx:BlockHeight", tx.BlockHeight,
 	)
 	if err != nil {
 		log.Println("handleTransactionAddress error:", err)
