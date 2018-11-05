@@ -260,9 +260,39 @@ func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
 	}
-	_ = payReq
-	//TODO: make the payment after the needed verifications
-	return &breez.AddFundReply{}, nil
+	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+
+	if maxAllowedDeposit == 0 {
+		p := message.NewPrinter(message.MatchLanguage("en"))
+		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
+		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
+		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
+	}
+
+	newAddrResp, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
+	if err != nil {
+		return nil, err
+	}
+	address := newAddrResp.Address
+
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	_, err = redisConn.Do("HMSET", "input-address:"+address, "paymentRequest", in.PaymentRequest)
+	if err != nil {
+		return nil, err
+	}
+	_, err = redisConn.Do("SADD", "input-address-notification:"+address, in.NotificationToken)
+	if err != nil {
+		return nil, err
+	}
+	_, err = redisConn.Do("SADD", "fund-addresses", address)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.AddFundReply{Address: address, MaxAllowedDeposit: maxAllowedDeposit}, nil
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
