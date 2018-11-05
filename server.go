@@ -464,7 +464,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		// Redeem the transaction
 		redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
 		if err != nil {
-			log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
+			log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		} else {
 			log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
 		}
