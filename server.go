@@ -206,6 +206,53 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 	return &breez.OpenChannelReply{}, nil
 }
 
+func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+
+	maxAllowedDeposit, err := getMaxAllowedDeposit(in.NodeID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+
+	if maxAllowedDeposit == 0 {
+		p := message.NewPrinter(message.MatchLanguage("en"))
+		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
+		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
+		return &breez.AddFundInitReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
+	}
+
+	subSwapServiceInitResponse, err := client.SubSwapServiceInit(clientCtx, &lnrpc.SubSwapServiceInitRequest{
+		Hash: in.Hash,
+		Pubkey: in.Pubkey,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	address := subSwapServiceInitResponse.Address
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	_, err = redisConn.Do("HMSET", "input-address:"+address, "hash", in.Hash)
+	if err != nil {
+		return nil, err
+	}
+	_, err = redisConn.Do("SADD", "input-address-notification:"+address, in.NotificationToken)
+	if err != nil {
+		return nil, err
+	}
+	_, err = redisConn.Do("SADD", "fund-addresses", address)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.AddFundInitReply{
+		Address: address,
+		MaxAllowedDeposit: maxAllowedDeposit,
+		Pubkey: subSwapServiceInitResponse.Pubkey,
+		LockHeight: subSwapServiceInitResponse.LockHeight,
+		}, nil
+}
+
+
 func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 

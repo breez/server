@@ -27,6 +27,7 @@ service Information {
 
 service FundManager {
   rpc OpenChannel (OpenChannelRequest) returns (OpenChannelReply) {}
+  rpc AddFundInit (AddFundInitRequest) returns (AddFundInitReply) {}
   rpc AddFund (AddFundRequest) returns (AddFundReply) {}
   rpc AddFundStatus (AddFundStatusRequest) returns (AddFundStatusReply) {}
   rpc RemoveFund (RemoveFundRequest) returns (RemoveFundReply) {}
@@ -39,6 +40,21 @@ message OpenChannelRequest {
 }
 
 message OpenChannelReply {}
+
+message AddFundInitRequest {
+  string nodeID = 1;
+  string notificationToken = 2;
+  bytes pubkey = 3;
+  bytes hash = 4;
+}
+
+message AddFundInitReply {
+  string address = 1;
+  bytes pubkey = 2;
+  int64 lockHeight = 3;
+  int64 maxAllowedDeposit = 4;
+  string errorMessage = 5;
+}
 
 message AddFundRequest {
   string paymentRequest = 1;
