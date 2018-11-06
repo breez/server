@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/breez/lightninglib/zpay32"
 	"image/png"
 	"log"
 	"net"
@@ -394,6 +395,69 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 	}
 
 	return &breez.GetPaymentReply{PaymentError: sendResponse.PaymentError}, nil
+}
+
+func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {
+	// Decode the the client's payment request
+	decodedPayReq, err := zpay32.Decode(in.PaymentRequest, network)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "payment request is not valid")
+	}
+
+	decodedAmt := int64(0)
+	if decodedPayReq.MilliSat != nil {
+		decodedAmt = int64(decodedPayReq.MilliSat.ToSatoshis())
+	}
+
+	maxAllowedDeposit, err := getMaxAllowedDeposit(hex.EncodeToString(decodedPayReq.Destination.SerializeCompressed()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
+	}
+	if decodedAmt > maxAllowedDeposit {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit))
+	}
+	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
+
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	utxos, err := client.UnspentAmount(clientCtx, &lnrpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(utxos.Utxos) == 0 {
+		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
+	}
+
+	// Determine if the amount in payment request is the same as in the address UTXOs
+	if utxos.Amount != decodedAmt {
+		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to one in client's payment request")
+	}
+
+	// Get the current blockheight
+	chainInfo, err := client.GetInfo(clientCtx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
+	}
+
+	if (int32(chainInfo.BlockHeight) - utxos.Utxos[0].BlockHeight) > (utxos.LockHeight / 2) {
+		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
+	}
+
+	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
+	if err != nil {
+		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
+		return nil, status.Errorf(codes.Internal, "failed to send payment")
+	}
+
+	// Redeem the transaction
+	redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
+	if err != nil {
+		log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
+		return nil, err
+	}
+
+	log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
+	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
 func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
