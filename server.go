@@ -445,18 +445,14 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
-	if sendResponse.PaymentError != "" {
-		log.Printf("SendPaymentSync payment paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentError)
-	} else {
-		// Redeem the transaction
-		redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
-		if err != nil {
-			log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
-		} else {
-			log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
-		}
+	// Redeem the transaction
+	redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
+	if err != nil {
+		log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
+		return nil, err
 	}
 
+	log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
