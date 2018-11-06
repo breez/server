@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/breez/lightninglib/zpay32"
 	"image/png"
 	"log"
 	"net"
@@ -398,41 +399,34 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 
 func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {
 	// Decode the the client's payment request
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	decodedPayReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
+	decodedPayReq, err := zpay32.Decode(in.PaymentRequest, network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "payment request is not valid")
 	}
-	maxAllowedDeposit, err := getMaxAllowedDeposit(decodedPayReq.Destination)
+
+	decodedAmt := int64(0)
+	if decodedPayReq.MilliSat != nil {
+		decodedAmt = int64(decodedPayReq.MilliSat.ToSatoshis())
+	}
+
+	maxAllowedDeposit, err := getMaxAllowedDeposit(hex.EncodeToString(decodedPayReq.Destination.SerializeCompressed()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
-	if decodedPayReq.NumSatoshis > maxAllowedDeposit {
-		return nil, status.Errorf(codes.Internal, fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedPayReq.NumSatoshis, maxAllowedDeposit))
+	if decodedAmt > maxAllowedDeposit {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit))
 	}
-	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedPayReq.NumSatoshis, maxAllowedDeposit)
+	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
-	paymentHash, err := hex.DecodeString(decodedPayReq.PaymentHash)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "couldn't get hash from the payment request")
-	}
-
-	utxos, err := client.UnspentAmount(clientCtx, &lnrpc.UnspentAmountRequest{Hash: paymentHash})
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	utxos, err := client.UnspentAmount(clientCtx, &lnrpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
 	if err != nil {
 		return nil, err
 	}
 
 	// Determine if the amount in payment request is the same as in the address UTXOs
-	if utxos.Amount != decodedPayReq.NumSatoshis {
+	if utxos.Amount != decodedAmt {
 		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to one in client's payment request")
-	}
-
-	// Find the oldest UTXO (first mined)
-	oldestBlockHeight := utxos.Utxos[0].BlockHeight
-	for _, utxo := range utxos.Utxos {
-		if utxo.BlockHeight < oldestBlockHeight {
-			oldestBlockHeight = utxo.BlockHeight
-		}
 	}
 
 	// Get the current blockheight
@@ -441,18 +435,18 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
-	if (int32(chainInfo.BlockHeight) - oldestBlockHeight) > (utxos.LockHeight / 2) {
+	if (int32(chainInfo.BlockHeight) - utxos.Utxos[0].BlockHeight) > (utxos.LockHeight / 2) {
 		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
 	}
 
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
 	if err != nil {
-		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedPayReq.NumSatoshis, err)
+		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
 	if sendResponse.PaymentError != "" {
-		log.Printf("SendPaymentSync payment paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedPayReq.NumSatoshis, sendResponse.PaymentError)
+		log.Printf("SendPaymentSync payment paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentError)
 	} else {
 		// Redeem the transaction
 		redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
