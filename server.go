@@ -41,7 +41,6 @@ const (
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
 	minRemoveFund           = depositBalanceThreshold / 10
-	redeemBlockThreshold    = 36
 )
 
 var client lnrpc.LightningClient
