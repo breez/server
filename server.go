@@ -398,19 +398,6 @@ func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*
 }
 
 func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {
-	redisConn := redisPool.Get()
-	m, err := redis.StringMap(redisConn.Do("HGETALL", "input-address:"+in.Address))
-	if err != nil {
-		log.Println("GetPayment error:", err)
-		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
-	}
-
-	// Ensure we didn't pay this invoice before
-	preImage := m["payment:PaymentPreimage"]
-	if preImage != "" {
-		return nil, status.Errorf(codes.Internal, "payment already sent")
-	}
-
 	// Decode the the client's payment request
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	decodedPayReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
@@ -426,20 +413,27 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedPayReq.NumSatoshis, maxAllowedDeposit)
 
-	// Validate the amount in database is the same as in payment request
-	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
+	paymentHash, err := hex.DecodeString(decodedPayReq.PaymentHash)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "couldn't determine the transaction amount")
+		return nil, status.Errorf(codes.Internal, "couldn't get hash from the payment request")
 	}
 
-	if amt != decodedPayReq.NumSatoshis {
-		return nil, status.Errorf(codes.Internal, "invoice amount not equal to one in client's payment request")
+	utxos, err := client.UnspentAmount(clientCtx, &lnrpc.UnspentAmountRequest{Hash: paymentHash})
+	if err != nil {
+		return nil, err
 	}
 
-	// Validate we are within 36 blocks from when the transaction was mined
-	blockHeight, err := strconv.ParseInt(m["tx:BlockHeight"], 10, 64)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "couldn't determine the transaction blockheight")
+	// Determine if the amount in payment request is the same as in the address UTXOs
+	if utxos.Amount != decodedPayReq.NumSatoshis {
+		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to one in client's payment request")
+	}
+
+	// Find the oldest UTXO (first mined)
+	oldestBlockHeight := utxos.Utxos[0].BlockHeight
+	for _, utxo := range utxos.Utxos {
+		if utxo.BlockHeight < oldestBlockHeight {
+			oldestBlockHeight = utxo.BlockHeight
+		}
 	}
 
 	// Get the current blockheight
@@ -448,18 +442,18 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
-	if int64(chainInfo.BlockHeight) - blockHeight > redeemBlockThreshold {
+	if (int32(chainInfo.BlockHeight) - oldestBlockHeight) > (utxos.LockHeight / 2) {
 		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
 	}
 
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
 	if err != nil {
-		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, in.PaymentRequest, decodedPayReq.NumSatoshis, err)
+		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedPayReq.NumSatoshis, err)
 		return nil, status.Errorf(codes.Internal, "failed to send payment")
 	}
 
 	if sendResponse.PaymentError != "" {
-		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, in.PaymentRequest, decodedPayReq.NumSatoshis, sendResponse.PaymentError)
+		log.Printf("SendPaymentSync payment paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedPayReq.NumSatoshis, sendResponse.PaymentError)
 	} else {
 		// Redeem the transaction
 		redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
@@ -467,19 +461,6 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 			log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		} else {
 			log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
-		}
-
-		// Save the preimage to avoid paying twice
-		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
-			"payment:PaymentPreimage", sendResponse.PaymentPreimage,
-		)
-		if err != nil {
-			log.Printf("handleTransactionAddress error in HSET preimage for %v: Preimage: %v: %v", in.Address, hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
-		}
-
-		_, err = redisConn.Do("SREM", "fund-addresses", in.Address)
-		if err != nil {
-			log.Printf("handleTransactionAddress error in SREM %v from fund-addresses: %v", in.Address, err)
 		}
 	}
 
