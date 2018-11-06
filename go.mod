@@ -5,7 +5,7 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
 	github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
-	github.com/breez/lightninglib v0.0.0-20181102084808-a5eb7cf58639
+	github.com/breez/lightninglib v0.0.0-20181106130016-131b881c7f6b
 	github.com/btcsuite/btcd v0.0.0-20180903232927-cff30e1d23fc
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/davecgh/go-spew v1.1.1 // indirect
