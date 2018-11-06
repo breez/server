@@ -424,6 +424,10 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 
+	if len(utxos.Utxos) == 0 {
+		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
+	}
+
 	// Determine if the amount in payment request is the same as in the address UTXOs
 	if utxos.Amount != decodedAmt {
 		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to one in client's payment request")
