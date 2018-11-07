@@ -96,7 +96,7 @@ func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*br
 		SetPriority(fcm.Priority_HIGH).
 		SetNotificationPayload(&fcm.NotificationPayload{Title: in.Payee,
 			Body:  "is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat",
-			Icon:  "ic_launcher",
+			Icon:  "breez_notify",
 			Sound: "default"}).
 		Send()
 

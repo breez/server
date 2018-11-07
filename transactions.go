@@ -146,7 +146,7 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 	status, err := fcmClient.NewFcmRegIdsMsg(tokens, data).
 		SetNotificationPayload(&fcm.NotificationPayload{Title: title,
 			Body:  body,
-			Icon:  "ic_launcher",
+			Icon:  "breez_notify",
 			Sound: "default"}).
 		SetPriority(fcm.Priority_HIGH).
 		Send()
