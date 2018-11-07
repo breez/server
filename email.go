@@ -21,6 +21,7 @@ func sendCardOrderNotification(in *breez.OrderRequest) error {
 	<div>State: {{ .State }}</div>
 	<div>Zip: {{ .Zip }}</div>
 	<div>Country: {{ .Country }}</div>
+	<div>Email: {{ .Email }}</div>
 	`
 	t, err := template.New("OrderCardEmail").Parse(tpl)
 	if err != nil {

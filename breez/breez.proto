@@ -180,6 +180,7 @@ message OrderRequest {
   string State = 4;
   string Zip = 5;
   string Country = 6;
+  string Email = 7;
 }
 
 message OrderReply {
