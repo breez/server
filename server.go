@@ -253,49 +253,6 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		}, nil
 }
 
-
-func (s *server) AddFund(ctx context.Context, in *breez.AddFundRequest) (*breez.AddFundReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-
-	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: in.PaymentRequest})
-	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "payment request is not valid")
-	}
-	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
-	}
-
-	if maxAllowedDeposit == 0 {
-		p := message.NewPrinter(message.MatchLanguage("en"))
-		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
-		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
-		return &breez.AddFundReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
-	}
-
-	newAddrResp, err := client.NewAddress(clientCtx, &lnrpc.NewAddressRequest{Type: lnrpc.NewAddressRequest_WITNESS_PUBKEY_HASH})
-	if err != nil {
-		return nil, err
-	}
-	address := newAddrResp.Address
-
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-	_, err = redisConn.Do("HMSET", "input-address:"+address, "paymentRequest", in.PaymentRequest)
-	if err != nil {
-		return nil, err
-	}
-	_, err = redisConn.Do("SADD", "input-address-notification:"+address, in.NotificationToken)
-	if err != nil {
-		return nil, err
-	}
-	_, err = redisConn.Do("SADD", "fund-addresses", address)
-	if err != nil {
-		return nil, err
-	}
-	return &breez.AddFundReply{Address: address, MaxAllowedDeposit: maxAllowedDeposit}, nil
-}
-
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
 	statuses := make(map[string]*breez.AddFundStatusReply_AddressStatus)
 	redisConn := redisPool.Get()
@@ -333,68 +290,6 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 	}
 
 	return &breez.AddFundStatusReply{Statuses: statuses}, nil
-}
-
-func (s *server) GetPayment(ctx context.Context, in *breez.GetPaymentRequest) (*breez.GetPaymentReply, error) {
-	redisConn := redisPool.Get()
-	m, err := redis.StringMap(redisConn.Do("HGETALL", "input-address:"+in.Address))
-	if err != nil {
-		log.Println("GetPayment error:", err)
-		return nil, status.Errorf(codes.Internal, "failed to retrieve address information")
-	}
-
-	//ensure we didn't pay this invoice before
-	preImage := m["payment:PaymentPreimage"]
-	if preImage != "" {
-		return nil, status.Errorf(codes.Internal, "payment already sent")
-	}
-
-	//ensure we have a payment request and the transactino amount
-	paymentRequest := m["paymentRequest"]
-	if paymentRequest == "" {
-		return nil, status.Errorf(codes.Internal, "payment request not found")
-	}
-	amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64)
-	if err != nil || amt <= 0 {
-		return nil, status.Errorf(codes.Internal, "on-chain funds are not confirmred yet")
-	}
-
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	payReq, err := client.DecodePayReq(clientCtx, &lnrpc.PayReqString{PayReq: paymentRequest})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "payment request is not valid")
-	}
-	maxAllowedDeposit, err := getMaxAllowedDeposit(payReq.Destination)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
-	}
-	if amt > maxAllowedDeposit {
-		return nil, status.Errorf(codes.Internal, fmt.Sprintf("deposit amount: %v is greater than max allowed: %v", amt, maxAllowedDeposit))
-	}
-	log.Printf("paying node %v amt = %v, maxAllowed = %v", payReq.Destination, amt, maxAllowedDeposit)
-
-	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: paymentRequest, Amt: amt})
-	if err != nil {
-		log.Printf("SendPaymentSync address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, err)
-		return nil, status.Errorf(codes.Internal, "failed to send payment")
-	}
-
-	if sendResponse.PaymentError != "" {
-		log.Printf("SendPaymentSync payment address: %v, paymentRequest: %v, Amount: %v, error: %v", in.Address, paymentRequest, amt, sendResponse.PaymentError)
-	} else {
-		_, err = redisConn.Do("HSET", "input-address:"+in.Address,
-			"payment:PaymentPreimage", sendResponse.PaymentPreimage,
-		)
-		if err != nil {
-			log.Printf("handleTransactionAddress error in HSET preimage for %v: Preimage: %v: %v", in.Address, hex.EncodeToString(sendResponse.PaymentPreimage), err) //here we have nothing to do. We didn't store the fact that we paid the user
-		}
-		_, err = redisConn.Do("SREM", "fund-addresses", in.Address)
-		if err != nil {
-			log.Printf("handleTransactionAddress error in SREM %v from fund-addresses: %v", in.Address, err)
-		}
-	}
-
-	return &breez.GetPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
 func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {

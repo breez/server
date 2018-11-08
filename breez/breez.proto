@@ -28,11 +28,9 @@ service Information {
 service FundManager {
   rpc OpenChannel (OpenChannelRequest) returns (OpenChannelReply) {}
   rpc AddFundInit (AddFundInitRequest) returns (AddFundInitReply) {}
-  rpc AddFund (AddFundRequest) returns (AddFundReply) {}
   rpc AddFundStatus (AddFundStatusRequest) returns (AddFundStatusReply) {}
   rpc RemoveFund (RemoveFundRequest) returns (RemoveFundReply) {}
   rpc RedeemRemovedFunds (RedeemRemovedFundsRequest) returns (RedeemRemovedFundsReply) {}
-  rpc GetPayment (GetPaymentRequest) returns (GetPaymentReply) {}
   rpc GetSwapPayment (GetSwapPaymentRequest) returns (GetSwapPaymentReply) {}
 }
 
@@ -55,17 +53,6 @@ message AddFundInitReply {
   int64 lockHeight = 3;
   int64 maxAllowedDeposit = 4;
   string errorMessage = 5;
-}
-
-message AddFundRequest {
-  string paymentRequest = 1;
-  string notificationToken = 2;
-}
-
-message AddFundReply {
-  string address = 1;
-  int64 maxAllowedDeposit = 2;
-  string errorMessage = 3;
 }
 
 message AddFundStatusRequest {
@@ -117,15 +104,6 @@ message FundReply {
     WRONG_AMOUNT = -5;
   }
   ReturnCode returnCode = 1;
-}
-
-message GetPaymentRequest {
-  string paymentRequest = 1;
-  string address = 2;
-}
-
-message GetPaymentReply {
-  string paymentError = 1;
 }
 
 message GetSwapPaymentRequest {
