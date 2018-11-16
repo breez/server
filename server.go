@@ -251,8 +251,8 @@ func notifyWhenChannelOpen(channelStream lnrpc.Lightning_OpenChannelClient, noti
 			if err != nil {
 				log.Println(status)
 				log.Println(err)
-				return
 			}
+			return
 		}
 	}
 }
