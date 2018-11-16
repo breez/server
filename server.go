@@ -191,6 +191,34 @@ func (s *server) UploadLogo(ctx context.Context, in *breez.UploadFileRequest) (*
 	return &breez.UploadFileReply{Url: objAttrs.MediaLink}, nil
 }
 
+// Workaround until LND PR #1595 is merged
+func (s *server) UpdateChannelPolicy(ctx context.Context, in *breez.UpdateChannelPolicyRequest) (*breez.UpdateChannelPolicyReply, error) {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	nodeChannels, err := getNodeChannels(in.PubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range nodeChannels {
+		var channelPoint lnrpc.ChannelPoint
+
+		outputIndex, err := strconv.ParseUint(strings.Split(c.ChannelPoint, ":")[1], 10, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		channelPoint.OutputIndex = uint32(outputIndex)
+		channelPoint.FundingTxid = &lnrpc.ChannelPoint_FundingTxidStr{FundingTxidStr: strings.Split(c.ChannelPoint, ":")[0]}
+
+		client.UpdateChannelPolicy(clientCtx, &lnrpc.PolicyUpdateRequest{BaseFeeMsat: 1000, FeeRate: 0.000001, TimeLockDelta: 144, Scope: &lnrpc.PolicyUpdateRequest_ChanPoint{ChanPoint: &channelPoint}})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &breez.UpdateChannelPolicyReply{}, nil
+}
+
 func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	nodeChannels, err := getNodeChannels(in.PubKey)
