@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/breez/lightninglib/zpay32"
 	"image/png"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -225,14 +226,63 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		return nil, err
 	}
 	if len(nodeChannels) == 0 {
-		response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
+		channelStream, err := client.OpenChannel(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
 			NodePubkeyString: in.PubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
-		log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 		if err != nil {
 			return nil, err
 		}
+
+		if in.NotificationToken != "" {
+			go notifyWhenChannelOpen(channelStream, in.NotificationToken)
+		}
 	}
 	return &breez.OpenChannelReply{}, nil
+}
+
+func notifyWhenChannelOpen(channelStream lnrpc.Lightning_OpenChannelClient, notificationToken string) {
+	for {
+		log.Println("OpenChannel Recv call")
+		c, err := channelStream.Recv()
+		if err == io.EOF {
+			log.Println("OpenChannel stream stopped.")
+			break
+		}
+
+		if err != nil {
+			log.Printf("Error in stream: %v", err)
+			return
+		}
+
+		_, ok := c.Update.(*lnrpc.OpenStatusUpdate_ChanOpen)
+		if ok {
+			ids := []string{
+				notificationToken,
+			}
+
+			notificationData := map[string]string{
+				"msg":          "Channel opened",
+				"click_action": "FLUTTER_NOTIFICATION_CLICK",
+				"collapseKey":  "breez",
+			}
+
+			notificationClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
+			status, err := notificationClient.NewFcmRegIdsMsg(ids, notificationData).
+				SetPriority(fcm.Priority_HIGH).
+				SetNotificationPayload(&fcm.NotificationPayload{
+					Title: "Secured channel open",
+					Body:  "You are now ready to receive payments using Breez. Open to continue with a previously shared payment link.",
+					Icon:  "breez_notify",
+					Sound: "default"}).
+				Send()
+
+			status.PrintResults()
+			if err != nil {
+				log.Println(status)
+				log.Println(err)
+			}
+			return
+		}
+	}
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
