@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/breez/lightninglib/zpay32"
 	"image/png"
 	"io"
 	"log"
@@ -19,6 +18,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/breez/lightninglib/zpay32"
 
 	"github.com/breez/server/breez"
 	"golang.org/x/text/message"
@@ -43,6 +44,7 @@ const (
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
 	minRemoveFund           = depositBalanceThreshold / 10
+	ctpSessionTTL           = 3600 * 24 // one day
 )
 
 var client lnrpc.LightningClient
@@ -301,7 +303,7 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 	}
 
 	subSwapServiceInitResponse, err := client.SubSwapServiceInit(clientCtx, &lnrpc.SubSwapServiceInitRequest{
-		Hash: in.Hash,
+		Hash:   in.Hash,
 		Pubkey: in.Pubkey,
 	})
 	if err != nil {
@@ -324,11 +326,11 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		return nil, err
 	}
 	return &breez.AddFundInitReply{
-		Address: address,
+		Address:           address,
 		MaxAllowedDeposit: maxAllowedDeposit,
-		Pubkey: subSwapServiceInitResponse.Pubkey,
-		LockHeight: subSwapServiceInitResponse.LockHeight,
-		}, nil
+		Pubkey:            subSwapServiceInitResponse.Pubkey,
+		LockHeight:        subSwapServiceInitResponse.LockHeight,
+	}, nil
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
@@ -486,6 +488,18 @@ func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.Orde
 	return &breez.OrderReply{}, nil
 }
 
+//JoinCTPSession is used by both payer/payee to join a CTP session.
+//If the sessionID parameter is given then this function looks for an existing session.
+//If the sessionID parameter is not given then this function creates a new session.
+//Every session that is created is removed automatically after "ctpSessionTTL" in seconds.
+func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
+	sessionID, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.JoinCTPSessionResponse{SessionID: sessionID}, nil
+}
+
 //Calculate the max allowed deposit for a node
 func getMaxAllowedDeposit(nodeID string) (int64, error) {
 	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
@@ -558,8 +572,6 @@ func main() {
 		log.Println("redisConnect error:", err)
 	}
 
-	go notify()
-
 	s := grpc.NewServer()
 
 	breez.RegisterInvoicerServer(s, &server{})
@@ -567,6 +579,7 @@ func main() {
 	breez.RegisterInformationServer(s, &server{})
 	breez.RegisterCardOrdererServer(s, &server{})
 	breez.RegisterFundManagerServer(s, &server{})
+	breez.RegisterCTPServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
