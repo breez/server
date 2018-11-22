@@ -14,6 +14,7 @@ require (
 	github.com/gomodule/redigo v2.0.1-0.20180627144507-2cd21d9966bf+incompatible
 	github.com/google/go-cmp v0.2.0 // indirect
 	github.com/google/martian v2.1.0+incompatible // indirect
+	github.com/google/uuid v1.1.0
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
