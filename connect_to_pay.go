@@ -90,6 +90,6 @@ func notifyOtherParty(sessionID, joinedPartyType, joinedPartyName, sendToToken s
 	notifyConfig.title = notifyMessages[joinedPartyType]["title"]
 	notifyConfig.body = fmt.Sprintf(notifyMessages[joinedPartyType]["body"], joinedPartyName)
 	notifyConfig.highPriority = true
-	notifyConfig.data["msg"] = fmt.Sprintf("{CTPSessionID: %v}", sessionID)
+	notifyConfig.data["msg"] = fmt.Sprintf("{\"CTPSessionID\": \"%v\"}", sessionID)
 	notify(notifyConfig, []string{sendToToken})
 }
