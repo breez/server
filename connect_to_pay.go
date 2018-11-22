@@ -12,6 +12,7 @@ const (
 	payeeJoinedMsgBody  = "%v is waiting for you to complete a payment you've previously shared. Open to continue with the payment."
 	payerJoinedMsgBody  = "%v is waiting for you to join a payment session. Open to continue with receiving this payment."
 	payerJoinedMsgTitle = "Receive Payment"
+	ctpSessionTTL       = 3600 * 24 // one day
 )
 
 var (
@@ -21,6 +22,10 @@ var (
 	}
 )
 
+//joinSession is used by both payer/payee to join a CTP session.
+//If the sessionID parameter is given then this function looks for an existing session.
+//If the sessionID parameter is not given then this function creates a new session.
+//Every session that is created is removed automatically after "ctpSessionTTL" in seconds.
 func joinSession(existingSessionID, partyToken, partyName string, payer bool) (string, error) {
 	partyType := "payer"
 	otherParty := "payee"

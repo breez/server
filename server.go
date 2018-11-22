@@ -44,7 +44,6 @@ const (
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
 	minRemoveFund           = depositBalanceThreshold / 10
-	ctpSessionTTL           = 3600 * 24 // one day
 )
 
 var client lnrpc.LightningClient
@@ -489,9 +488,6 @@ func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.Orde
 }
 
 //JoinCTPSession is used by both payer/payee to join a CTP session.
-//If the sessionID parameter is given then this function looks for an existing session.
-//If the sessionID parameter is not given then this function creates a new session.
-//Every session that is created is removed automatically after "ctpSessionTTL" in seconds.
 func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
 	sessionID, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
 	if err != nil {
