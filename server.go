@@ -227,8 +227,12 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		return nil, err
 	}
 	if len(nodeChannels) == 0 {
+		nodeKey, err := hex.DecodeString(in.PubKey)
+		if err != nil {
+			return nil, err
+		}
 		channelStream, err := client.OpenChannel(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-			NodePubkeyString: in.PubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
+			NodePubkey: nodeKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
 		if err != nil {
 			return nil, err
 		}
