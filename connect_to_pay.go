@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +27,7 @@ var (
 //If the sessionID parameter is given then this function looks for an existing session.
 //If the sessionID parameter is not given then this function creates a new session.
 //Every session that is created is removed automatically after "ctpSessionTTL" in seconds.
-func joinSession(existingSessionID, partyToken, partyName string, payer bool) (string, error) {
+func joinSession(existingSessionID, partyToken, partyName string, payer bool) (string, int64, error) {
 	partyType := "payer"
 	otherParty := "payee"
 	if !payer {
@@ -47,10 +48,10 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 		sessionExists, err := keyExists(redisSessionKey)
 		if err != nil {
 			log.Printf("Error in JoinSession: %v", err)
-			return "", err
+			return "", 0, err
 		}
 		if !sessionExists {
-			return "", fmt.Errorf("Session %v does not exist or expired", sessionID)
+			return "", 0, fmt.Errorf("Session %v does not exist or expired", sessionID)
 		}
 	}
 
@@ -60,7 +61,7 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 		partyName:     partyName,
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	//if we just created a new session, put expiration on it
@@ -73,7 +74,7 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 	fields, err := getKeyFields(redisSessionKey)
 	if err != nil {
 		log.Printf("Error in JoinSession: %v", err)
-		return "", err
+		return "", 0, err
 	}
 	otherPartyTokenKey := fmt.Sprintf("ctp-token-%v", otherParty)
 	otherPartyToken := fields[otherPartyTokenKey]
@@ -81,8 +82,17 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 	if otherPartyToken != "" {
 		go notifyOtherParty(sessionID, partyType, partyName, otherPartyToken)
 	}
+	ttl, err := getKeyExpiration(redisSessionKey)
+	if err != nil {
+		return "", 0, err
+	}
 
-	return sessionID, nil
+	expiry := time.Now().Add(time.Second * time.Duration(ttl))
+	return sessionID, expiry.Unix(), nil
+}
+
+func terminateSession(sessionID string) error {
+	return deleteKey(fmt.Sprintf("ctp-session-%v", sessionID))
 }
 
 func notifyOtherParty(sessionID, joinedPartyType, joinedPartyName, sendToToken string) {

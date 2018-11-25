@@ -493,11 +493,19 @@ func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.Orde
 
 //JoinCTPSession is used by both payer/payee to join a CTP session.
 func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
-	sessionID, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
+	sessionID, expiry, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
 	if err != nil {
 		return nil, err
 	}
-	return &breez.JoinCTPSessionResponse{SessionID: sessionID}, nil
+	return &breez.JoinCTPSessionResponse{SessionID: sessionID, Expiry: expiry}, nil
+}
+
+func (s *server) TerminateCTPSession(ctx context.Context, in *breez.TerminateCTPSessionRequest) (*breez.TerminateCTPSessionResponse, error) {
+	err := terminateSession(in.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.TerminateCTPSessionResponse{}, nil
 }
 
 //Calculate the max allowed deposit for a node
