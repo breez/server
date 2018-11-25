@@ -59,6 +59,13 @@ func getKeyFields(key string) (map[string]string, error) {
 	return res, err
 }
 
+func deleteKey(key string) error {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	_, err := redisConn.Do("DEL", key)
+	return err
+}
+
 func keyExists(key string) (bool, error) {
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
@@ -70,4 +77,11 @@ func setKeyExpiration(key string, seconds int64) error {
 	defer redisConn.Close()
 	_, err := redis.Bool(redisConn.Do("EXPIRE", key, seconds))
 	return err
+}
+
+func getKeyExpiration(key string) (int64, error) {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	ttl, err := redis.Int64(redisConn.Do("TTL", key))
+	return ttl, err
 }
