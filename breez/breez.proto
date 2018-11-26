@@ -37,6 +37,7 @@ service FundManager {
 
 service CTP {
   rpc JoinCTPSession (JoinCTPSessionRequest) returns (JoinCTPSessionResponse) {}
+  rpc TerminateCTPSession (TerminateCTPSessionRequest) returns (TerminateCTPSessionResponse) {}
 }
 
 message OpenChannelRequest {
@@ -190,4 +191,11 @@ message JoinCTPSessionRequest {
 
 message JoinCTPSessionResponse {
   string sessionID = 1;
+  int64 expiry = 2;
 }
+
+message TerminateCTPSessionRequest {
+  string sessionID = 1;
+}
+
+message TerminateCTPSessionResponse {}
