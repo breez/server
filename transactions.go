@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -15,7 +17,20 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var txGroup singleflight.Group
+const (
+	receivePaymentType            = "receivePayment"
+	transactionNotificationExpiry = 3600 * 6
+)
+
+var (
+	txGroup           singleflight.Group
+	notificationTypes = map[string]map[string]string{
+		receivePaymentType: map[string]string{
+			"title": "Receive Payment",
+			"body":  "You are now ready to receive payments using Breez. Open to continue with a previously shared payment link.",
+		},
+	}
+)
 
 func handlePastTransactions() error {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
@@ -90,6 +105,66 @@ func subscribeTransactionsOnce() error {
 }
 
 func handleTransaction(tx *lnrpc.Transaction) error {
+	if err := handleTransactionNotifications(tx); err != nil {
+		log.Println("handleTransactionNotifications error:", err)
+		return err
+	}
+	return handleTransactionAddreses(tx)
+}
+
+func registerTransacionConfirmation(txID, token, notifyType string) error {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	registrationKey := fmt.Sprintf("tx-notify-%v", txID)
+	registrationData := map[string]string{"token": token, "type": notifyType}
+	marshalled, err := json.Marshal(registrationData)
+	if err != nil {
+		return err
+	}
+	_, err = redisConn.Do("SADD", registrationKey, string(marshalled))
+	if err != nil {
+		return err
+	}
+	err = setKeyExpiration(registrationKey, transactionNotificationExpiry)
+	return err
+}
+
+func handleTransactionNotifications(tx *lnrpc.Transaction) error {
+	if tx.NumConfirmations == 0 {
+		return nil
+	}
+
+	registrationKey := fmt.Sprintf("tx-notify-%v", tx.TxHash)
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	for {
+		registrations, err := redis.Strings(redisConn.Do("SPOP", registrationKey, 10))
+		if err != nil {
+			return err
+		}
+
+		for _, r := range registrations {
+			var regData map[string]string
+			if err = json.Unmarshal([]byte(r), &regData); err != nil {
+				log.Printf("Failed to decode json registration %v", r)
+				continue
+			}
+			notificationType := regData["type"]
+			notificationToken := regData["token"]
+			notifyConfig := defaultNotificationConfig()
+			notifyConfig.title = notificationTypes[notificationType]["title"]
+			notifyConfig.body = notificationTypes[notificationType]["body"]
+			go notify(notifyConfig, []string{notificationToken})
+		}
+
+		if len(registrations) < 10 {
+			break
+		}
+	}
+	return nil
+}
+
+func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 	log.Printf("t:%#v", tx)
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
@@ -115,7 +190,7 @@ func handleTransaction(tx *lnrpc.Transaction) error {
 					"utx:Amount", tx.Amount,
 				)
 				if err != nil {
-					log.Println("handleTransaction error:", err)
+					log.Println("handleTransactionAddreses error:", err)
 					return err
 				}
 				amt := strconv.FormatInt(tx.Amount, 10)

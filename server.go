@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"image/png"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -227,67 +226,15 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		return nil, err
 	}
 	if len(nodeChannels) == 0 {
-		nodeKey, err := hex.DecodeString(in.PubKey)
-		if err != nil {
-			return nil, err
-		}
-		channelStream, err := client.OpenChannel(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-			NodePubkey: nodeKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
-		if err != nil {
-			return nil, err
-		}
+		response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
+			NodePubkeyString: in.PubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
+		log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
-		if in.NotificationToken != "" {
-			go notifyWhenChannelOpen(channelStream, in.NotificationToken)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return &breez.OpenChannelReply{}, nil
-}
-
-func notifyWhenChannelOpen(channelStream lnrpc.Lightning_OpenChannelClient, notificationToken string) {
-	for {
-		log.Println("OpenChannel Recv call")
-		c, err := channelStream.Recv()
-		if err == io.EOF {
-			log.Println("OpenChannel stream stopped.")
-			break
-		}
-
-		if err != nil {
-			log.Printf("Error in stream: %v", err)
-			return
-		}
-
-		_, ok := c.Update.(*lnrpc.OpenStatusUpdate_ChanOpen)
-		if ok {
-			ids := []string{
-				notificationToken,
-			}
-
-			notificationData := map[string]string{
-				"msg":          "Channel opened",
-				"click_action": "FLUTTER_NOTIFICATION_CLICK",
-				"collapseKey":  "breez",
-			}
-
-			notificationClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-			status, err := notificationClient.NewFcmRegIdsMsg(ids, notificationData).
-				SetPriority(fcm.Priority_HIGH).
-				SetNotificationPayload(&fcm.NotificationPayload{
-					Title: "Secured channel open",
-					Body:  "You are now ready to receive payments using Breez. Open to continue with a previously shared payment link.",
-					Icon:  "breez_notify",
-					Sound: "default"}).
-				Send()
-
-			status.PrintResults()
-			if err != nil {
-				log.Println(status)
-				log.Println(err)
-			}
-			return
-		}
-	}
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
@@ -434,7 +381,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 
-	log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
+	log.Printf("redeem tx broadcast: %v", redeem.Txid)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
@@ -506,6 +453,21 @@ func (s *server) TerminateCTPSession(ctx context.Context, in *breez.TerminateCTP
 		return nil, err
 	}
 	return &breez.TerminateCTPSessionResponse{}, nil
+}
+
+func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.RegisterTransactionConfirmationRequest) (*breez.RegisterTransactionConfirmationResponse, error) {
+	var notifyType string
+	if in.NotificationType == breez.RegisterTransactionConfirmationRequest_READY_RECEIVE_PAYMENT {
+		notifyType = receivePaymentType
+	}
+	if notifyType == "" {
+		return nil, errors.New("Invalid notification type")
+	}
+	err := registerTransacionConfirmation(in.TxID, in.NotificationToken, notifyType)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.RegisterTransactionConfirmationResponse{}, nil
 }
 
 //Calculate the max allowed deposit for a node
