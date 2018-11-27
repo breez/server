@@ -381,7 +381,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 
-	log.Printf("redeem tx broadcast: %v", redeem.Txid, err)
+	log.Printf("redeem tx broadcast: %v", redeem.Txid)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
@@ -453,6 +453,14 @@ func (s *server) TerminateCTPSession(ctx context.Context, in *breez.TerminateCTP
 		return nil, err
 	}
 	return &breez.TerminateCTPSessionResponse{}, nil
+}
+
+func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.RegisterTransactionConfirmationRequest) (*breez.RegisterTransactionConfirmationResponse, error) {
+	err := registerTransacionConfirmation(in.TxID, in.NotificationToken, receivePaymentType)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.RegisterTransactionConfirmationResponse{}, nil
 }
 
 //Calculate the max allowed deposit for a node
