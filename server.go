@@ -456,7 +456,14 @@ func (s *server) TerminateCTPSession(ctx context.Context, in *breez.TerminateCTP
 }
 
 func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.RegisterTransactionConfirmationRequest) (*breez.RegisterTransactionConfirmationResponse, error) {
-	err := registerTransacionConfirmation(in.TxID, in.NotificationToken, receivePaymentType)
+	var notifyType string
+	if in.NotificationType == breez.RegisterTransactionConfirmationRequest_READY_RECEIVE_PAYMENT {
+		notifyType = receivePaymentType
+	}
+	if notifyType == "" {
+		return nil, errors.New("Invalid notification type")
+	}
+	err := registerTransacionConfirmation(in.TxID, in.NotificationToken, notifyType)
 	if err != nil {
 		return nil, err
 	}

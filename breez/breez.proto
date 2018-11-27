@@ -202,8 +202,13 @@ message TerminateCTPSessionRequest {
 message TerminateCTPSessionResponse {}
 
 message RegisterTransactionConfirmationRequest {
+  enum NotificationType {
+    READY_RECEIVE_PAYMENT = 0;    
+  }
+
   string txID = 1;
-  string notificationToken = 2;
+  string notificationToken = 2; 
+  NotificationType notificationType = 3;
 }
 
 message RegisterTransactionConfirmationResponse {
