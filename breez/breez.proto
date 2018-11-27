@@ -33,6 +33,7 @@ service FundManager {
   rpc RemoveFund (RemoveFundRequest) returns (RemoveFundReply) {}
   rpc RedeemRemovedFunds (RedeemRemovedFundsRequest) returns (RedeemRemovedFundsReply) {}
   rpc GetSwapPayment (GetSwapPaymentRequest) returns (GetSwapPaymentReply) {}
+  rpc RegisterTransactionConfirmation(RegisterTransactionConfirmationRequest) returns (RegisterTransactionConfirmationResponse) {}
 }
 
 service CTP {
@@ -199,3 +200,12 @@ message TerminateCTPSessionRequest {
 }
 
 message TerminateCTPSessionResponse {}
+
+message RegisterTransactionConfirmationRequest {
+  string txID = 1;
+  string notificationToken = 2;
+}
+
+message RegisterTransactionConfirmationResponse {
+  
+}
