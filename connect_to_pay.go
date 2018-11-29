@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,6 +35,7 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 	}
 	sessionID := existingSessionID
 
+	fmt.Printf("joinSession partyType=%v, partyToken=%v otherParty=%v, sessionID=%v", partyType, partyToken, otherParty, sessionID)
 	//if we didn't get session id we are asked to create a new session.
 	if sessionID == "" {
 		sessionID = uuid.New().String() //generte
@@ -47,15 +47,18 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 	if existingSessionID != "" {
 		sessionExists, err := keyExists(redisSessionKey)
 		if err != nil {
-			log.Printf("Error in JoinSession: %v", err)
+			fmt.Printf("Error in JoinSession: %v", err)
 			return "", 0, err
 		}
 		if !sessionExists {
+			fmt.Printf("Error in JoinSession: session doesn't exist or expired")
 			return "", 0, fmt.Errorf("Session %v does not exist or expired", sessionID)
 		}
 	}
 
 	partyTokenKey := fmt.Sprintf("ctp-token-%v", partyType)
+	fmt.Printf("partyTokenKey: %v", partyTokenKey)
+
 	err := updateKeyFields(redisSessionKey, map[string]string{
 		partyTokenKey: partyToken,
 		partyName:     partyName,
@@ -73,7 +76,7 @@ func joinSession(existingSessionID, partyToken, partyName string, payer bool) (s
 	//notify other party about the new user joined the session
 	fields, err := getKeyFields(redisSessionKey)
 	if err != nil {
-		log.Printf("Error in JoinSession: %v", err)
+		fmt.Printf("Error in JoinSession: %v", err)
 		return "", 0, err
 	}
 	otherPartyTokenKey := fmt.Sprintf("ctp-token-%v", otherParty)
