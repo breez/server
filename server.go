@@ -369,9 +369,12 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
-	if err != nil {
+	if err != nil || sendResponse.PaymentError != "" {
+		if sendResponse != nil && sendResponse.PaymentError != "" {
+			err = fmt.Errorf("Error in payment response: %v", sendResponse.PaymentError)
+		}
 		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
-		return nil, status.Errorf(codes.Internal, "failed to send payment")
+		return nil, err
 	}
 
 	// Redeem the transaction
