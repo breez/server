@@ -18,17 +18,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/breez/lightninglib/zpay32"
-
-	"github.com/breez/server/breez"
-	"golang.org/x/text/message"
-
 	"cloud.google.com/go/storage"
 	"github.com/NaySoftware/go-fcm"
 	"github.com/breez/lightninglib/lnrpc"
+	"github.com/breez/lightninglib/zpay32"
+	"github.com/breez/server/breez"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
+	"golang.org/x/text/message"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
