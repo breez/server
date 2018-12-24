@@ -203,7 +203,8 @@ message TerminateCTPSessionResponse {}
 
 message RegisterTransactionConfirmationRequest {
   enum NotificationType {
-    READY_RECEIVE_PAYMENT = 0;    
+    READY_RECEIVE_PAYMENT = 0;
+    CHANNEL_OPENED = 1;    
   }
 
   string txID = 1;
