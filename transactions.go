@@ -19,6 +19,7 @@ import (
 
 const (
 	receivePaymentType            = "receivePayment"
+	channelOpenedType             = "channelOpened"
 	transactionNotificationExpiry = 3600 * 6
 )
 
@@ -28,6 +29,10 @@ var (
 		receivePaymentType: map[string]string{
 			"title": "Receive Payment",
 			"body":  "You are now ready to receive payments using Breez. Open to continue with a previously shared payment link.",
+		},
+		channelOpenedType: map[string]string{
+			"title": "Breez",
+			"body":  "You can now use Breez to send and receive Bitcoin payments!",
 		},
 	}
 )

@@ -461,6 +461,9 @@ func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.
 	if in.NotificationType == breez.RegisterTransactionConfirmationRequest_READY_RECEIVE_PAYMENT {
 		notifyType = receivePaymentType
 	}
+	if in.NotificationType == breez.RegisterTransactionConfirmationRequest_CHANNEL_OPENED {
+		notifyType = channelOpenedType
+	}
 	if notifyType == "" {
 		return nil, errors.New("Invalid notification type")
 	}
