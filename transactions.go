@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	txGroup           singleflight.Group
-	notificationTypes = map[string]map[string]string{
+	txGroup             singleflight.Group
+	txNotificationGroup singleflight.Group
+	notificationTypes   = map[string]map[string]string{
 		receivePaymentType: map[string]string{
 			"title": "Receive Payment",
 			"body":  "You are now ready to receive payments using Breez. Open to continue with a previously shared payment link.",
@@ -208,54 +209,57 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 }
 
 func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body string, delete bool) {
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-	tokens, err := redis.Strings(redisConn.Do("SMEMBERS", "input-address-notification:"+tx.DestAddresses[index]))
-	if err != nil {
-		log.Println("notifyUnconfirmed error:", err)
-		return
-	}
-	data := map[string]string{
-		"msg":          msg,
-		"tx":           tx.TxHash,
-		"address":      tx.DestAddresses[index],
-		"value":        strconv.FormatInt(tx.Amount, 10),
-		"click_action": "FLUTTER_NOTIFICATION_CLICK",
-	}
-	fcmClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-	status, err := fcmClient.NewFcmRegIdsMsg(tokens, data).
-		SetNotificationPayload(&fcm.NotificationPayload{Title: title,
-			Body:  body,
-			Icon:  "breez_notify",
-			Sound: "default"}).
-		SetPriority(fcm.Priority_HIGH).
-		Send()
-
-	status.PrintResults()
-	if err != nil {
-		log.Println("Error in send:", err)
-	} else {
-		for i, result := range status.Results {
-			if result["error"] == "Unregistered Device" || delete {
-				_, err = redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tokens[i])
-				if err != nil {
-					log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tokens[i], err)
-				}
-			}
-		}
-		card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
+	key := tx.TxHash + "-notification"
+	_, _, _ = txNotificationGroup.Do(key, func() (interface{}, error) {
+		redisConn := redisPool.Get()
+		defer redisConn.Close()
+		tokens, err := redis.Strings(redisConn.Do("SMEMBERS", "input-address-notification:"+tx.DestAddresses[index]))
 		if err != nil {
-			log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+			log.Println("notifyUnconfirmed error:", err)
+			return nil, nil
+		}
+		data := map[string]string{
+			"msg":          msg,
+			"tx":           tx.TxHash,
+			"address":      tx.DestAddresses[index],
+			"value":        strconv.FormatInt(tx.Amount, 10),
+			"click_action": "FLUTTER_NOTIFICATION_CLICK",
+		}
+		fcmClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
+		status, err := fcmClient.NewFcmRegIdsMsg(tokens, data).
+			SetNotificationPayload(&fcm.NotificationPayload{Title: title,
+				Body:  body,
+				Icon:  "breez_notify",
+				Sound: "default"}).
+			SetPriority(fcm.Priority_HIGH).
+			Send()
+
+		status.PrintResults()
+		if err != nil {
+			log.Println("Error in send:", err)
 		} else {
-			if card == 0 {
-				_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
-				if err != nil {
-					log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+			for i, result := range status.Results {
+				if result["error"] == "Unregistered Device" || delete {
+					_, err = redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tokens[i])
+					if err != nil {
+						log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tokens[i], err)
+					}
+				}
+			}
+			card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
+			if err != nil {
+				log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+			} else {
+				if card == 0 {
+					_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
+					if err != nil {
+						log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+					}
 				}
 			}
 		}
-	}
-
+		return nil, nil
+	})
 }
 
 func handleTransactionAddress(tx *lnrpc.Transaction, index int) error {
