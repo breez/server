@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -99,10 +100,14 @@ func terminateSession(sessionID string) error {
 }
 
 func notifyOtherParty(sessionID, joinedPartyType, joinedPartyName, sendToToken string) {
-	notifyConfig := defaultNotificationConfig()
-	notifyConfig.title = notifyMessages[joinedPartyType]["title"]
-	notifyConfig.body = fmt.Sprintf(notifyMessages[joinedPartyType]["body"], joinedPartyName)
-	notifyConfig.highPriority = true
-	notifyConfig.data["msg"] = fmt.Sprintf("{\"CTPSessionID\": \"%v\"}", sessionID)
-	notify(notifyConfig, []string{sendToToken})
+	data := map[string]string{
+		"title": notifyMessages[joinedPartyType]["title"],
+		"body":  fmt.Sprintf(notifyMessages[joinedPartyType]["body"], joinedPartyName),
+		"msg":   fmt.Sprintf("{\"CTPSessionID\": \"%v\"}", sessionID),
+	}
+
+	_, err := notifyDataMessage(data, []string{sendToToken})
+	if err != nil {
+		log.Println("Error in send:", err)
+	}
 }

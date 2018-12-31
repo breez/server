@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NaySoftware/go-fcm"
 	"github.com/breez/lightninglib/lnrpc"
 	"github.com/gomodule/redigo/redis"
 	"golang.org/x/sync/singleflight"
@@ -157,10 +156,16 @@ func handleTransactionNotifications(tx *lnrpc.Transaction) error {
 			}
 			notificationType := regData["type"]
 			notificationToken := regData["token"]
-			notifyConfig := defaultNotificationConfig()
-			notifyConfig.title = notificationTypes[notificationType]["title"]
-			notifyConfig.body = notificationTypes[notificationType]["body"]
-			go notify(notifyConfig, []string{notificationToken})
+			data := map[string]string{
+				"title": notificationTypes[notificationType]["title"],
+				"body":  notificationTypes[notificationType]["body"],
+			}
+			go func() {
+				_, err := notifyDataMessage(data, []string{notificationToken})
+				if err != nil {
+					log.Printf("Error sending transaction confirmation %v", err)
+				}
+			}()
 		}
 
 		if len(registrations) < 10 {
@@ -219,22 +224,15 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 			return nil, nil
 		}
 		data := map[string]string{
-			"msg":          msg,
-			"tx":           tx.TxHash,
-			"address":      tx.DestAddresses[index],
-			"value":        strconv.FormatInt(tx.Amount, 10),
-			"click_action": "FLUTTER_NOTIFICATION_CLICK",
+			"msg":     msg,
+			"title":   title,
+			"body":    body,
+			"tx":      tx.TxHash,
+			"address": tx.DestAddresses[index],
+			"value":   strconv.FormatInt(tx.Amount, 10),
 		}
-		fcmClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-		status, err := fcmClient.NewFcmRegIdsMsg(tokens, data).
-			SetNotificationPayload(&fcm.NotificationPayload{Title: title,
-				Body:  body,
-				Icon:  "breez_notify",
-				Sound: "default"}).
-			SetPriority(fcm.Priority_HIGH).
-			Send()
 
-		status.PrintResults()
+		status, err := notifyDataMessage(data, tokens)
 		if err != nil {
 			log.Println("Error in send:", err)
 		} else {

@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"github.com/NaySoftware/go-fcm"
 	"github.com/breez/lightninglib/lnrpc"
 	"github.com/breez/lightninglib/zpay32"
 	"github.com/breez/server/breez"
@@ -84,42 +83,15 @@ func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*br
 	}
 
 	notificationData := map[string]string{
-		"msg":          "Payment request",
-		"invoice":      in.Invoice,
-		"click_action": "FLUTTER_NOTIFICATION_CLICK",
-		"collapseKey":  "breez",
-	}
-
-	notificationClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-	status, err := notificationClient.NewFcmRegIdsMsg(ids, notificationData).
-		SetPriority(fcm.Priority_HIGH).
-		SetNotificationPayload(&fcm.NotificationPayload{Title: in.Payee,
-			Body:  "is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat",
-			Icon:  "breez_notify",
-			Sound: "default"}).
-		Send()
-
-	status.PrintResults()
-	if err != nil {
-		log.Println(status)
-		log.Println(err)
-		return &breez.InvoiceReply{Error: err.Error()}, err
-	}
-
-	data := map[string]string{
-		"payment_request": in.Invoice,
+		"msg":             "Payment request",
+		"title":           "in.Payee",
+		"body":            "is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat",
 		"payee":           in.Payee,
 		"amount":          strconv.FormatInt(in.Amount, 10),
-		"collapseKey":     "breez",
+		"payment_request": in.Invoice,
 	}
 
-	dataClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-	dataStatus, err := dataClient.NewFcmRegIdsMsg(ids, data).
-		SetPriority(fcm.Priority_HIGH).
-		SetMsgData(data).
-		Send()
-
-	dataStatus.PrintResults()
+	status, err := notifyDataMessage(notificationData, ids)
 	if err != nil {
 		log.Println(status)
 		log.Println(err)

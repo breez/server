@@ -15,28 +15,18 @@ type notificationConfig struct {
 	data         map[string]string
 }
 
-func defaultNotificationConfig() *notificationConfig {
-	return &notificationConfig{
-		icon:  "breez_notify",
-		sound: "default",
-		data: map[string]string{
-			"click_action": "FLUTTER_NOTIFICATION_CLICK",
-			"collapseKey":  "breez",
-		},
-	}
-}
-
-func notify(conf *notificationConfig, tokens []string) error {
+func notifyDataMessage(data map[string]string, tokens []string) (*fcm.FcmResponseStatus, error) {
 	notificationClient := fcm.NewFcmClient(os.Getenv("FCM_KEY"))
-	status, err := notificationClient.NewFcmRegIdsMsg(tokens, conf.data).
+	if data["click_action"] == "" {
+		data["click_action"] = "FLUTTER_NOTIFICATION_CLICK"
+	}
+	if data["collapseKey"] == "" {
+		data["collapseKey"] = "breez"
+	}
+	status, err := notificationClient.NewFcmRegIdsMsg(tokens, data).
 		SetPriority(fcm.Priority_HIGH).
-		SetNotificationPayload(&fcm.NotificationPayload{
-			Title: conf.title,
-			Body:  conf.body,
-			Icon:  conf.icon,
-			Sound: conf.sound}).
 		Send()
 
 	status.PrintResults()
-	return err
+	return status, err
 }
