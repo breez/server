@@ -203,6 +203,7 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		if err != nil {
 			return nil, err
 		}
+		_ = sendOpenChannelNotification(in.PubKey, hex.EncodeToString(response.GetFundingTxidBytes()), response.GetOutputIndex())
 	}
 	return &breez.OpenChannelReply{}, nil
 }
