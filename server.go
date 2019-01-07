@@ -197,7 +197,7 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 	}
 	if len(nodeChannels) == 0 {
 		response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-			NodePubkeyString: in.PubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
+			NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true})
 		log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
 		if err != nil {
