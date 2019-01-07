@@ -84,7 +84,7 @@ func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*br
 
 	notificationData := map[string]string{
 		"msg":             "Payment request",
-		"title":           "in.Payee",
+		"title":           in.Payee,
 		"body":            "is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat",
 		"payee":           in.Payee,
 		"amount":          strconv.FormatInt(in.Amount, 10),
