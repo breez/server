@@ -87,13 +87,13 @@ func sendCardOrderNotification(in *breez.OrderRequest) error {
 
 func sendOpenChannelNotification(nid, txid string, index uint32) error {
 
-	channelID := nid + ":" + strconv.FormatUint(uint64(index), 10)
+	channelID := txid + ":" + strconv.FormatUint(uint64(index), 10)
 
 	var html bytes.Buffer
 
 	tpl := `
 	<div>NodeId: {{ .NodeID }}</div>
-	<div>Channel: {{ .ChannelID }}:</div>
+	<div>Channel: {{ .ChannelID }}</div>
 	`
 	t, err := template.New("OpenChannelEmail").Parse(tpl)
 	if err != nil {
