@@ -48,30 +48,6 @@ var network *chaincfg.Params
 // server is used to implement breez.InvoicerServer and breez.PosServer
 type server struct{}
 
-// FundChannel funds a channel with the specified ID and amount
-func (s *server) FundChannel(ctx context.Context, in *breez.FundRequest) (*breez.FundReply, error) {
-	if in.Amount <= 0 {
-		log.Printf("Funding amount must be more than 0")
-		return &breez.FundReply{ReturnCode: breez.FundReply_WRONG_AMOUNT}, nil
-	}
-
-	nodePubKey, err := hex.DecodeString(in.LightningID)
-	if err != nil {
-		log.Printf("Error when calling decoding node ID: %s", err)
-		return &breez.FundReply{ReturnCode: breez.FundReply_WRONG_NODE_ID}, err
-	}
-
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	response, err := client.OpenChannel(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: in.Amount,
-		NodePubkeyString: in.LightningID, NodePubkey: nodePubKey, PushSat: 0, MinHtlcMsat: 600, Private: true})
-	if err != nil {
-		log.Printf("Error when calling OpenChannel: %s", err)
-		return &breez.FundReply{ReturnCode: breez.FundReply_UNKNOWN_ERROR}, err
-	}
-	log.Printf("Response from server: %s", response)
-	return &breez.FundReply{ReturnCode: breez.FundReply_SUCCESS}, nil
-}
-
 // RegisterDevice implements breez.InvoicerServer
 func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) (*breez.RegisterReply, error) {
 	return &breez.RegisterReply{BreezID: in.DeviceID}, nil

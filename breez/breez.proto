@@ -17,7 +17,6 @@ service CardOrderer {
 
 service Pos {
   rpc RegisterDevice (RegisterRequest) returns (RegisterReply) {}
-  rpc FundChannel (FundRequest) returns (FundReply) {}
   rpc UploadLogo (UploadFileRequest) returns (UploadFileReply) {}
 }
 
