@@ -7,7 +7,7 @@ import (
 
 const (
 	syncSetName  = "sync_notifications_set"
-	syncInterval = time.Duration(time.Second * 20)
+	syncInterval = time.Duration(time.Minute * 30)
 	syncJobName  = "chainSync"
 )
 
