@@ -17,10 +17,7 @@ const (
 func registerSyncNotification(deviceToken string) error {
 	_, err := pushWithScore(
 		syncSetName, deviceToken, time.Now().Add(syncInterval).Unix())
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // deliverSyncNotifications executes the main loop of runnig over existing registration
@@ -43,7 +40,7 @@ func deliverSyncNotifications() {
 			//if this token is still valid, register for the next sync time.
 			if !unreg {
 				if err = registerSyncNotification(deviceToken); err != nil {
-					log.Println("faile to re-regiseter sync notification for token: ", deviceToken)
+					log.Println("failed to re-regiseter sync notification for token: ", deviceToken)
 				}
 			}
 		}()
