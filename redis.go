@@ -85,3 +85,33 @@ func getKeyExpiration(key string) (int64, error) {
 	ttl, err := redis.Int64(redisConn.Do("TTL", key))
 	return ttl, err
 }
+
+func pushWithScore(set string, key string, score int64) (bool, error) {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	_, err := redis.Int64(redisConn.Do("ZREM", set, key))
+	if err != nil {
+		return false, err
+	}
+	count, err := redis.Int64(redisConn.Do("ZADD", set, score, key))
+	return count == 1, err
+}
+
+func popMinScore(set string) (string, float64, error) {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+	multi, err := redis.MultiBulk(redisConn.Do("BZPOPMIN", set, 0))
+	var key string
+	var score float64
+	if multi != nil && len(multi) == 3 {
+		key, err = redis.String(multi[1], nil)
+		if err != nil {
+			return "", 0, err
+		}
+		score, err = redis.Float64(multi[2], nil)
+		if err != nil {
+			return "", 0, err
+		}
+	}
+	return key, score, err
+}

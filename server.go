@@ -423,6 +423,13 @@ func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.
 	return &breez.RegisterTransactionConfirmationResponse{}, nil
 }
 
+func (s *server) RegisterPeriodicSync(ctx context.Context, in *breez.RegisterPeriodicSyncRequest) (*breez.RegisterPeriodicSyncResponse, error) {
+	if err := registerSyncNotification(in.NotificationToken); err != nil {
+		return nil, err
+	}
+	return &breez.RegisterPeriodicSyncResponse{}, nil
+}
+
 //Calculate the max allowed deposit for a node
 func getMaxAllowedDeposit(nodeID string) (int64, error) {
 	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
@@ -494,6 +501,7 @@ func main() {
 	if err != nil {
 		log.Println("redisConnect error:", err)
 	}
+	go deliverSyncNotifications()
 
 	s := grpc.NewServer()
 
@@ -503,6 +511,7 @@ func main() {
 	breez.RegisterCardOrdererServer(s, &server{})
 	breez.RegisterFundManagerServer(s, &server{})
 	breez.RegisterCTPServer(s, &server{})
+	breez.RegisterSyncNotifierServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
