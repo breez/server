@@ -41,6 +41,10 @@ service CTP {
   rpc TerminateCTPSession (TerminateCTPSessionRequest) returns (TerminateCTPSessionResponse) {}
 }
 
+service SyncNotifier {
+  rpc RegisterPeriodicSync(RegisterPeriodicSyncRequest) returns (RegisterPeriodicSyncResponse) {}
+}
+
 message OpenChannelRequest {
   string pubKey = 1;
   string notificationToken = 2;
@@ -212,6 +216,10 @@ message RegisterTransactionConfirmationRequest {
   NotificationType notificationType = 3;
 }
 
-message RegisterTransactionConfirmationResponse {
-  
+message RegisterTransactionConfirmationResponse {}
+
+message RegisterPeriodicSyncRequest {
+  string notificationToken = 1;
 }
+
+message RegisterPeriodicSyncResponse {}
