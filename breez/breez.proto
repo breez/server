@@ -105,24 +105,6 @@ message RedeemRemovedFundsReply {
   string txid = 1;
 }
 
-message FundRequest {
-  string deviceID = 1;
-  string lightningID = 2;
-  int64 amount = 3;
-}
-
-message FundReply {
-  enum ReturnCode {
-    SUCCESS = 0;
-    UNKNOWN_ERROR = -1;
-    NODE_BUSY = -2;
-    CLIENT_NOT_REGISTERED = -3;
-    WRONG_NODE_ID = -4;
-    WRONG_AMOUNT = -5;
-  }
-  ReturnCode returnCode = 1;
-}
-
 message GetSwapPaymentRequest {
   string paymentRequest = 1;
 }
