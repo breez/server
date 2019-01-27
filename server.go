@@ -25,6 +25,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
+	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -44,6 +45,7 @@ const (
 
 var client lnrpc.LightningClient
 var network *chaincfg.Params
+var openChannelReqGroup singleflight.Group
 
 // server is used to implement breez.InvoicerServer and breez.PosServer
 type server struct{}
@@ -166,22 +168,31 @@ func (s *server) UpdateChannelPolicy(ctx context.Context, in *breez.UpdateChanne
 }
 
 func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	nodeChannels, err := getNodeChannels(in.PubKey)
-	if err != nil {
-		return nil, err
-	}
-	if len(nodeChannels) == 0 {
-		response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-			NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true})
-		log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
+	r, err, _ := openChannelReqGroup.Do(in.PubKey, func() (interface{}, error) {
+		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+		nodeChannels, err := getNodeChannels(in.PubKey)
 		if err != nil {
 			return nil, err
 		}
-		_ = sendOpenChannelNotification(in.PubKey, hex.EncodeToString(response.GetFundingTxidBytes()), response.GetOutputIndex())
-	}
-	return &breez.OpenChannelReply{}, nil
+		pendingChannels, err := getPendingNodeChannels(in.PubKey)
+		if err != nil {
+			return nil, err
+		}
+		if len(nodeChannels) == 0 && len(pendingChannels) == 0 {
+			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
+				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true})
+			log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
+
+			if err != nil {
+				return nil, err
+			}
+			_ = sendOpenChannelNotification(in.PubKey, hex.EncodeToString(response.GetFundingTxidBytes()), response.GetOutputIndex())
+		}
+		return &breez.OpenChannelReply{}, nil
+	})
+
+	return r.(*breez.OpenChannelReply), err
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
@@ -462,6 +473,21 @@ func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 		}
 	}
 	return nodeChannels, nil
+}
+
+func getPendingNodeChannels(nodeID string) ([]*lnrpc.PendingChannelsResponse_PendingOpenChannel, error) {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	pendingResponse, err := client.PendingChannels(clientCtx, &lnrpc.PendingChannelsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	var pendingChannels []*lnrpc.PendingChannelsResponse_PendingOpenChannel
+	for _, p := range pendingResponse.PendingOpenChannels {
+		if p.Channel.RemoteNodePub == nodeID {
+			pendingChannels = append(pendingChannels, p)
+		}
+	}
+	return pendingChannels, nil
 }
 
 func main() {
