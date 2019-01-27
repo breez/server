@@ -1,0 +1,73 @@
+package main
+
+import (
+	"log"
+	"time"
+)
+
+const (
+	syncSetName  = "sync_notifications_set"
+	syncInterval = time.Duration(time.Second * 20)
+	syncJobName  = "chainSync"
+)
+
+// registerSyncNotification registeres a device for a periodic sync notification.
+// the client will get a data message every "syncInterval" and will be responsible
+// to execute a sync.
+func registerSyncNotification(deviceToken string) error {
+	_, err := pushWithScore(
+		syncSetName, deviceToken, time.Now().Add(syncInterval).Unix())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// deliverSyncNotifications executes the main loop of runnig over existing registration
+// and sending sync messags on time.
+func deliverSyncNotifications() {
+	for {
+		deviceToken, score, err := popMinScore(syncSetName)
+		if err != nil {
+			log.Println("failed to pop next sync notification ", err)
+			continue
+		}
+		fireTime := time.Unix(int64(score), 0)
+		<-time.After(fireTime.Sub(time.Now()))
+		go func() {
+			unreg, err := sendClientSyncMessage(deviceToken)
+			if err != nil {
+				log.Println("error in sending sync message:", err)
+			}
+
+			//if this token is still valid, register for the next sync time.
+			if !unreg {
+				if err = registerSyncNotification(deviceToken); err != nil {
+					log.Println("faile to re-regiseter sync notification for token: ", deviceToken)
+				}
+			}
+		}()
+	}
+}
+
+// sendClientSyncMessage is the function that actualy sends the sync message
+// to the client. It also returns a value indicates if this token needs to be
+// unregistered.
+func sendClientSyncMessage(sendToToken string) (bool, error) {
+	data := map[string]string{
+		"_job": syncJobName,
+	}
+
+	status, err := notifyDataMessage(data, []string{sendToToken})
+	if err != nil {
+		return false, err
+	}
+
+	var unregistered bool
+	for _, result := range status.Results {
+		if result["error"] == "Unregistered Device" {
+			unregistered = true
+		}
+	}
+	return unregistered, nil
+}
