@@ -15,6 +15,7 @@ require (
 	github.com/google/martian v2.1.0+incompatible // indirect
 	github.com/google/uuid v1.1.0
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
