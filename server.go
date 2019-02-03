@@ -22,6 +22,7 @@ import (
 	"github.com/breez/lightninglib/lnrpc"
 	"github.com/breez/lightninglib/zpay32"
 	"github.com/breez/server/breez"
+	"github.com/breez/server/ratelimit"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
@@ -34,6 +35,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
 const (
@@ -529,7 +531,12 @@ func main() {
 	}
 	go deliverSyncNotifications()
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc_middleware.WithUnaryServerChain(
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 2, 5, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 5, 20, 86400),
+		),
+	)
 
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})
