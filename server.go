@@ -26,6 +26,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
@@ -35,7 +36,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
 const (
@@ -533,8 +533,38 @@ func main() {
 
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/SendInvoice", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/SendInvoice", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CardOrderer/Order", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CardOrderer/Order", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/RegisterDevice", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/RegisterDevice", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/UploadLogo", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/UploadLogo", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Ping", 10, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Ping", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 2, 5, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 5, 20, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundInit", 3, 20, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundInit", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundStatus", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundStatus", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RemoveFund", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RemoveFund", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RedeemRemovedFunds", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RedeemRemovedFunds", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 3, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 3, 100, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 100, 10000, 86400),
 		),
 	)
 
