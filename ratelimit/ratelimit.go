@@ -8,6 +8,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -23,6 +24,16 @@ func getIP(ctx context.Context) string {
 		srcIP = addr.IP.String()
 	case *net.TCPAddr:
 		srcIP = addr.IP.String()
+	}
+	if srcIP == "127.0.0.1" {
+		md, ok := metadata.FromIncomingContext(ctx)
+		//log.Println(ok, md)
+		if ok {
+			realIP := md["x-real-ip"]
+			if len(realIP) > 0 {
+				srcIP = realIP[0]
+			}
+		}
 	}
 	return srcIP
 }
