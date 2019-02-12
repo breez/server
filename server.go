@@ -561,10 +561,10 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 1000, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 3, 100, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 100, 10000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 3, 100, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 100, 10000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 3, 100, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 10, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 100000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 10, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1009, 100000, 86400),
 		),
 	)
 
