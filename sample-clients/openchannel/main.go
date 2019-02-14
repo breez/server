@@ -25,17 +25,18 @@ func main() {
 	}
 	defer conn.Close()
 
-	c := breez.NewPosClient(conn)
+	c := breez.NewFundManagerClient(conn)
 
 	// Contact the server and print out its response.
-	id := ""
+	pubkey := ""
 	if len(os.Args) > 1 {
-		id = os.Args[1]
+		pubkey = os.Args[1]
 	} else {
-		log.Fatalf("Need an id")
+		log.Fatalf("Need an pubkey")
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.FundChannel(ctx, &breez.FundRequest{DeviceID: "", LightningID: id, Amount: 1234567})
+	r, err := c.OpenChannel(ctx, &breez.OpenChannelRequest{PubKey: pubkey})
 	fmt.Printf("Result %#v %v\n", r, err)
 }
