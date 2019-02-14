@@ -194,6 +194,9 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		return &breez.OpenChannelReply{}, nil
 	})
 
+	if err != nil {
+		return nil, err
+	}
 	return r.(*breez.OpenChannelReply), err
 }
 
