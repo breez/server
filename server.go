@@ -327,7 +327,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
-	if (int32(chainInfo.BlockHeight) - utxos.Utxos[0].BlockHeight) > (utxos.LockHeight / 2) {
+	if (4 * (int32(chainInfo.BlockHeight) - utxos.Utxos[0].BlockHeight) > 3 * utxos.LockHeight) {
 		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
 	}
 
