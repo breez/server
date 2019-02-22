@@ -561,7 +561,7 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RemoveFund", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RedeemRemovedFunds", 10, 100, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RedeemRemovedFunds", 100, 10000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 10, 100, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 100, 1000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 1000, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 3, 100, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 100, 10000, 86400),
