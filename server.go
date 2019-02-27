@@ -251,6 +251,7 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		MaxAllowedDeposit: maxAllowedDeposit,
 		Pubkey:            subSwapServiceInitResponse.Pubkey,
 		LockHeight:        subSwapServiceInitResponse.LockHeight,
+		RequiredReserve:   chanReserve,
 	}, nil
 }
 
