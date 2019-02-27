@@ -44,6 +44,7 @@ const (
 	channelAmount           = 1000000
 	depositBalanceThreshold = 500000
 	minRemoveFund           = depositBalanceThreshold / 10
+	chanReserve             = 600
 )
 
 var client lnrpc.LightningClient
@@ -184,7 +185,7 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		}
 		if len(nodeChannels) == 0 && len(pendingChannels) == 0 {
 			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true, RemoteChanReserveSat: 600})
+				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true, RemoteChanReserveSat: chanReserve})
 			log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
 			if err != nil {
@@ -214,7 +215,12 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		p := message.NewPrinter(message.MatchLanguage("en"))
 		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
 		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
-		return &breez.AddFundInitReply{MaxAllowedDeposit: maxAllowedDeposit, ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).", btcFormatted, satFormatted)}, nil
+		return &breez.AddFundInitReply{
+			MaxAllowedDeposit: maxAllowedDeposit,
+			ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).",
+				btcFormatted, satFormatted),
+			RequiredReserve: chanReserve,
+		}, nil
 	}
 
 	subSwapServiceInitResponse, err := client.SubSwapServiceInit(clientCtx, &lnrpc.SubSwapServiceInitRequest{
