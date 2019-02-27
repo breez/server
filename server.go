@@ -26,7 +26,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
@@ -183,7 +184,7 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 		}
 		if len(nodeChannels) == 0 && len(pendingChannels) == 0 {
 			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true})
+				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true, RemoteChanReserveSat: 600})
 			log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
 			if err != nil {
@@ -328,7 +329,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
-	if (4 * (int32(chainInfo.BlockHeight) - utxos.Utxos[0].BlockHeight) > 3 * utxos.LockHeight) {
+	if 4*(int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight) > 3*utxos.LockHeight {
 		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
 	}
 
