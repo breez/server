@@ -24,6 +24,7 @@ import (
 	"github.com/breez/server/breez"
 	"github.com/breez/server/ratelimit"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
@@ -192,7 +193,11 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 				log.Printf("Error in OpenChannel: %v", err)
 				return nil, err
 			}
-			_ = sendOpenChannelNotification(in.PubKey, hex.EncodeToString(response.GetFundingTxidBytes()), response.GetOutputIndex())
+			txid, err := chainhash.NewHash(response.GetFundingTxidBytes())
+			if err != nil {
+				return nil, err
+			}
+			_ = sendOpenChannelNotification(in.PubKey, txid.String(), response.GetOutputIndex())
 		}
 		return &breez.OpenChannelReply{}, nil
 	})
