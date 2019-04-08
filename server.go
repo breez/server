@@ -193,11 +193,15 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 				log.Printf("Error in OpenChannel: %v", err)
 				return nil, err
 			}
+			var txidStr string
 			txid, err := chainhash.NewHash(response.GetFundingTxidBytes())
-			if err != nil {
-				return nil, err
+
+			// don't fail the request in case we can't format the channel id from
+			// some reason...
+			if txid != nil {
+				txidStr = txid.String()
 			}
-			_ = sendOpenChannelNotification(in.PubKey, txid.String(), response.GetOutputIndex())
+			_ = sendOpenChannelNotification(in.PubKey, txidStr, response.GetOutputIndex())
 		}
 		return &breez.OpenChannelReply{}, nil
 	})
