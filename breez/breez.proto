@@ -112,6 +112,7 @@ message GetSwapPaymentRequest {
 
 message GetSwapPaymentReply {
   string paymentError = 1;
+  bool funds_exceeded_limit = 2;
 }
 
 // The request message containing the device id and lightning id
