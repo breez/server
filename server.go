@@ -27,7 +27,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
@@ -320,7 +320,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
 	if decodedAmt > maxAllowedDeposit {
-		return nil, status.Errorf(codes.Internal, fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit))
+		return &breez.GetSwapPaymentReply{FundsExceededLimit: true}, fmt.Errorf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit)
 	}
 	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
