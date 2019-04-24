@@ -73,7 +73,7 @@ func sendCoinsForReceivedPayment(payReqHash string) (string, error) {
 	}
 
 	//2. send coins to the user
-	response, err := client.SendCoins(clientCtx, &lnrpc.SendCoinsRequest{Addr: address, Amount: invoice.AmtPaidSat, TargetConf: 1})
+	response, err := client.SendCoins(clientCtx, &lnrpc.SendCoinsRequest{Addr: address, Amount: invoice.AmtPaidSat})
 	if err != nil {
 		return "", fmt.Errorf("fail to send coins: %v", err)
 	}
