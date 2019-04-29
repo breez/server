@@ -320,7 +320,10 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
 	if decodedAmt > maxAllowedDeposit {
-		return &breez.GetSwapPaymentReply{FundsExceededLimit: true}, fmt.Errorf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit)
+		return &breez.GetSwapPaymentReply{
+			FundsExceededLimit: true,
+			PaymentError:       fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit),
+		}, nil
 	}
 	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
