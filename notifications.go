@@ -25,6 +25,7 @@ func notifyDataMessage(data map[string]string, tokens []string) (*fcm.FcmRespons
 	}
 	status, err := notificationClient.NewFcmRegIdsMsg(tokens, data).
 		SetPriority(fcm.Priority_HIGH).
+		SetContentAvailable(true).
 		Send()
 
 	status.PrintResults()
