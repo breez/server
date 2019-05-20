@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"	
+	"time"
 
 	"github.com/breez/lightninglib/lnrpc"
 	"github.com/gomodule/redigo/redis"
@@ -155,10 +155,10 @@ func handleTransactionNotifications(tx *lnrpc.Transaction) error {
 				continue
 			}
 			notificationType := regData["type"]
-			notificationToken := regData["token"]			
+			notificationToken := regData["token"]
 			go func() {
 				err := notifyAlertMessage(
-					notificationTypes[notificationType]["title"], 
+					notificationTypes[notificationType]["title"],
 					notificationTypes[notificationType]["body"],
 					map[string]string{}, notificationToken)
 
@@ -224,7 +224,7 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 			return nil, nil
 		}
 		data := map[string]string{
-			"msg":     msg,			
+			"msg":     msg,
 			"tx":      tx.TxHash,
 			"address": tx.DestAddresses[index],
 			"value":   strconv.FormatInt(tx.Amount, 10),
@@ -252,7 +252,7 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 					}
 				}
 			}
-		}		
+		}
 		return nil, nil
 	})
 }

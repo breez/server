@@ -1,18 +1,19 @@
 package main
 
 import (
-	"firebase.google.com/go/messaging"
 	"context"
+	"firebase.google.com/go/messaging"
 	"log"
-	"sync"
 	"strings"
+	"sync"
 
-	firebase "firebase.google.com/go"	
+	firebase "firebase.google.com/go"
 )
+
 var firebaseMu sync.Mutex
 
 func firebaseApp() (*firebase.App, error) {
-	firebaseMu.Lock()	
+	firebaseMu.Lock()
 	defer firebaseMu.Unlock()
 	return firebase.NewApp(context.Background(), nil)
 }
@@ -22,7 +23,7 @@ func notifyDataMessage(data map[string]string, token string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	client, err := app.Messaging(context.Background())
 	if err != nil {
 		return err
@@ -34,33 +35,33 @@ func notifyDataMessage(data map[string]string, token string) error {
 	}
 
 	status, err := client.Send(context.Background(), &messaging.Message{
-		Token: token,		
-		Data: data,
-		Android: &messaging.AndroidConfig{			
-			Priority: "high",			
+		Token: token,
+		Data:  data,
+		Android: &messaging.AndroidConfig{
+			Priority: "high",
 		},
 		APNS: &messaging.APNSConfig{
 			Headers: map[string]string{
-				"apns-priority": "10",				
+				"apns-priority": "10",
 			},
 			Payload: &messaging.APNSPayload{
-				Aps: &messaging.Aps{					
+				Aps: &messaging.Aps{
 					ContentAvailable: true,
 				},
-			},			
+			},
 		},
 	})
 
 	log.Printf("Data Notification Status = %v, Error = %v", status, err)
-	return err	
+	return err
 }
 
-func notifyAlertMessage(title, body string, data map[string]string, token string) error {	
+func notifyAlertMessage(title, body string, data map[string]string, token string) error {
 	app, err := firebaseApp()
 	if err != nil {
 		return err
 	}
-	
+
 	client, err := app.Messaging(context.Background())
 	if err != nil {
 		return err
@@ -78,28 +79,28 @@ func notifyAlertMessage(title, body string, data map[string]string, token string
 	}
 
 	status, err := client.Send(context.Background(), &messaging.Message{
-		Token: token,		
-		Data: data,
+		Token: token,
+		Data:  data,
 		Android: &messaging.AndroidConfig{
 			CollapseKey: "breez",
-			Priority: "high",			
+			Priority:    "high",
 		},
 		APNS: &messaging.APNSConfig{
 			Headers: map[string]string{
-				"apns-priority": "5",				
+				"apns-priority": "5",
 			},
 			Payload: &messaging.APNSPayload{
 				Aps: &messaging.Aps{
 					Alert: &messaging.ApsAlert{
 						Title: title,
-						Body: body,
+						Body:  body,
 					},
 					CustomData: iosCustomData,
 				},
 			},
 		},
 	})
-		
+
 	log.Printf("Alert Notification Status = %v, Error = %v", status, err)
 	return err
 }

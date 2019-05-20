@@ -100,14 +100,14 @@ func terminateSession(sessionID string) error {
 }
 
 func notifyOtherParty(sessionID, joinedPartyType, joinedPartyName, sendToToken string) {
-	data := map[string]string{		
-		"msg":   fmt.Sprintf("{\"CTPSessionID\": \"%v\"}", sessionID),
+	data := map[string]string{
+		"msg": fmt.Sprintf("{\"CTPSessionID\": \"%v\"}", sessionID),
 	}
 
 	err := notifyAlertMessage(
-		notifyMessages[joinedPartyType]["title"], 
-		fmt.Sprintf(notifyMessages[joinedPartyType]["body"], joinedPartyName), 
-		data, 
+		notifyMessages[joinedPartyType]["title"],
+		fmt.Sprintf(notifyMessages[joinedPartyType]["body"], joinedPartyName),
+		data,
 		sendToToken)
 	if err != nil {
 		log.Println("Error in send:", err)

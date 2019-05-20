@@ -62,5 +62,5 @@ func sendClientSyncMessage(sendToToken string) (bool, error) {
 		}
 		return false, err
 	}
-	return false, nil	
+	return false, nil
 }

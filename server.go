@@ -60,22 +60,22 @@ func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) 
 	return &breez.RegisterReply{BreezID: in.DeviceID}, nil
 }
 
-func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*breez.InvoiceReply, error) {	
+func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*breez.InvoiceReply, error) {
 
 	notificationData := map[string]string{
-		"msg":             "Payment request",		
+		"msg":             "Payment request",
 		"payee":           in.Payee,
 		"amount":          strconv.FormatInt(in.Amount, 10),
 		"payment_request": in.Invoice,
 	}
 
 	err := notifyAlertMessage(
-		in.Payee, 
-		"is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat", 
-		notificationData, 
+		in.Payee,
+		"is requesting you to pay "+strconv.FormatInt(in.Amount, 10)+" Sat",
+		notificationData,
 		in.BreezID)
 
-	if err != nil {		
+	if err != nil {
 		log.Println(err)
 		return &breez.InvoiceReply{Error: err.Error()}, err
 	}
@@ -516,7 +516,7 @@ func getPendingNodeChannels(nodeID string) ([]*lnrpc.PendingChannelsResponse_Pen
 }
 
 func main() {
-	
+
 	switch os.Getenv("NETWORK") {
 	case "simnet":
 		network = &chaincfg.SimNetParams
