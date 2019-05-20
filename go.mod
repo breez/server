@@ -3,6 +3,7 @@ module github.com/breez/server
 require (
 	cloud.google.com/go v0.26.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
+	firebase.google.com/go v3.7.0+incompatible
 	github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
 	github.com/breez/lightninglib v0.4.2-beta.0.20190407174954-d32d4231e0fc
