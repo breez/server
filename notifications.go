@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
-	"firebase.google.com/go/messaging"
 	"log"
+	"os"
 	"strings"
 	"sync"
 
+	"firebase.google.com/go/messaging"
+
 	firebase "firebase.google.com/go"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 )
 
 var firebaseMu sync.Mutex
@@ -15,7 +19,11 @@ var firebaseMu sync.Mutex
 func firebaseApp() (*firebase.App, error) {
 	firebaseMu.Lock()
 	defer firebaseMu.Unlock()
-	return firebase.NewApp(context.Background(), nil)
+	creds, err := google.CredentialsFromJSON(context.Background(), []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")), "https://www.googleapis.com/auth/firebase.messaging")
+	if err != nil {
+		return nil, err
+	}
+	return firebase.NewApp(context.Background(), nil, option.WithCredentials(creds))
 }
 
 func notifyDataMessage(data map[string]string, token string) error {
