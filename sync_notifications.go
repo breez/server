@@ -55,16 +55,12 @@ func sendClientSyncMessage(sendToToken string) (bool, error) {
 		"_job": syncJobName,
 	}
 
-	status, err := notifyDataMessage(data, []string{sendToToken})
+	err := notifyDataMessage(data, sendToToken)
 	if err != nil {
+		if isUnregisteredError(err) {
+			return true, nil
+		}
 		return false, err
 	}
-
-	var unregistered bool
-	for _, result := range status.Results {
-		if result["error"] == "Unregistered Device" {
-			unregistered = true
-		}
-	}
-	return unregistered, nil
+	return false, nil	
 }
