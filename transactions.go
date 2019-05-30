@@ -156,12 +156,12 @@ func handleTransactionNotifications(tx *lnrpc.Transaction) error {
 			}
 			notificationType := regData["type"]
 			notificationToken := regData["token"]
-			data := map[string]string{
-				"title": notificationTypes[notificationType]["title"],
-				"body":  notificationTypes[notificationType]["body"],
-			}
 			go func() {
-				_, err := notifyDataMessage(data, []string{notificationToken})
+				err := notifyAlertMessage(
+					notificationTypes[notificationType]["title"],
+					notificationTypes[notificationType]["body"],
+					map[string]string{}, notificationToken)
+
 				if err != nil {
 					log.Printf("Error sending transaction confirmation %v", err)
 				}
@@ -225,33 +225,30 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 		}
 		data := map[string]string{
 			"msg":     msg,
-			"title":   title,
-			"body":    body,
 			"tx":      tx.TxHash,
 			"address": tx.DestAddresses[index],
 			"value":   strconv.FormatInt(tx.Amount, 10),
 		}
 
-		status, err := notifyDataMessage(data, tokens)
-		if err != nil {
+		for _, tok := range tokens {
+			err = notifyAlertMessage(title, body, data, tok)
 			log.Println("Error in send:", err)
-		} else {
-			for i, result := range status.Results {
-				if result["error"] == "Unregistered Device" || delete {
-					_, err = redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tokens[i])
-					if err != nil {
-						log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tokens[i], err)
-					}
+			unregistered := err != nil && isUnregisteredError(err)
+			if unregistered || delete {
+				_, err = redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tok)
+				if err != nil {
+					log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tok, err)
 				}
-			}
-			card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
-			if err != nil {
-				log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
-			} else {
-				if card == 0 {
-					_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
-					if err != nil {
-						log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+
+				card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
+				if err != nil {
+					log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+				} else {
+					if card == 0 {
+						_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
+						if err != nil {
+							log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+						}
 					}
 				}
 			}

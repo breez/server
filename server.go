@@ -61,22 +61,21 @@ func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) 
 }
 
 func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*breez.InvoiceReply, error) {
-	ids := []string{
-		in.BreezID,
-	}
 
 	notificationData := map[string]string{
 		"msg":             "Payment request",
-		"title":           in.Payee,
-		"body":            "is requesting you to pay " + strconv.FormatInt(in.Amount, 10) + " Sat",
 		"payee":           in.Payee,
 		"amount":          strconv.FormatInt(in.Amount, 10),
 		"payment_request": in.Invoice,
 	}
 
-	status, err := notifyDataMessage(notificationData, ids)
+	err := notifyAlertMessage(
+		in.Payee,
+		"is requesting you to pay "+strconv.FormatInt(in.Amount, 10)+" Sat",
+		notificationData,
+		in.BreezID)
+
 	if err != nil {
-		log.Println(status)
 		log.Println(err)
 		return &breez.InvoiceReply{Error: err.Error()}, err
 	}

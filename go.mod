@@ -3,7 +3,7 @@ module github.com/breez/server
 require (
 	cloud.google.com/go v0.26.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
-	github.com/NaySoftware/go-fcm v0.0.0-20180207124314-28fff9381d17
+	firebase.google.com/go v3.7.0+incompatible
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
 	github.com/breez/lightninglib v0.4.2-beta.0.20190407174954-d32d4231e0fc
 	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
@@ -20,6 +20,7 @@ require (
 	github.com/pkg/errors v0.8.0 // indirect
 	go.opencensus.io v0.15.0 // indirect
 	golang.org/x/net v0.0.0-20181106065722-10aee1819953
+	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f
 	golang.org/x/text v0.3.0
 	google.golang.org/api v0.0.0-20180818000503-e21acd801f91
