@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/breez/lightninglib/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc/metadata"
 )

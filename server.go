@@ -19,8 +19,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"github.com/breez/lightninglib/lnrpc"
-	"github.com/breez/lightninglib/zpay32"
 	"github.com/breez/server/breez"
 	"github.com/breez/server/ratelimit"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -28,6 +26,9 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
+	"github.com/lightningnetwork/lnd/zpay32"
 
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
@@ -49,6 +50,7 @@ const (
 )
 
 var client lnrpc.LightningClient
+var subswapClient submarineswaprpc.SubmarineSwapperClient
 var network *chaincfg.Params
 var openChannelReqGroup singleflight.Group
 
@@ -184,8 +186,14 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 			return nil, err
 		}
 		if len(nodeChannels) == 0 && len(pendingChannels) == 0 {
-			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{LocalFundingAmount: channelAmount,
-				NodePubkeyString: in.PubKey, PushSat: 0, TargetConf: 1, MinHtlcMsat: 600, Private: true, RemoteChanReserveSat: chanReserve})
+			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{
+				LocalFundingAmount: channelAmount,
+				NodePubkeyString:   in.PubKey,
+				PushSat:            0,
+				TargetConf:         1,
+				MinHtlcMsat:        600,
+				Private:            true,
+			})
 			log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
 
 			if err != nil {
@@ -231,7 +239,7 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		}, nil
 	}
 
-	subSwapServiceInitResponse, err := client.SubSwapServiceInit(clientCtx, &lnrpc.SubSwapServiceInitRequest{
+	subSwapServiceInitResponse, err := subswapClient.SubSwapServiceInit(clientCtx, &submarineswaprpc.SubSwapServiceInitRequest{
 		Hash:   in.Hash,
 		Pubkey: in.Pubkey,
 	})
@@ -327,7 +335,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	utxos, err := client.UnspentAmount(clientCtx, &lnrpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
+	utxos, err := subswapClient.UnspentAmount(clientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +369,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	// Redeem the transaction
-	redeem, err := client.SubSwapServiceRedeem(clientCtx, &lnrpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
+	redeem, err := subswapClient.SubSwapServiceRedeem(clientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
 	if err != nil {
 		log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		return nil, err
@@ -545,6 +553,7 @@ func main() {
 	}
 	defer conn.Close()
 	client = lnrpc.NewLightningClient(conn)
+	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(conn)
 	go subscribeTransactions()
 	go handlePastTransactions()
 

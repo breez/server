@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/breez/lightninglib/lnrpc"
 	"github.com/gomodule/redigo/redis"
+	"github.com/lightningnetwork/lnd/lnrpc"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc/metadata"
 )
