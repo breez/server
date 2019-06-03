@@ -21,7 +21,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
-	github.com/lightningnetwork/lnd v0.6.1-beta.0.20190527234619-19fafd7a9a5f
+	github.com/lightningnetwork/lnd v0.6.1-beta
 	github.com/pkg/errors v0.8.0 // indirect
 	go.opencensus.io v0.15.0 // indirect
 	golang.org/x/net v0.0.0-20190206173232-65e2d4e15006
@@ -32,4 +32,4 @@ require (
 	google.golang.org/grpc v1.18.0
 )
 
-replace github.com/lightningnetwork/lnd v0.6.1-beta.0.20190527234619-19fafd7a9a5f => github.com/breez/lnd v0.6.1-beta.0.20190528065730-b6214f70b9bc
+replace github.com/lightningnetwork/lnd v0.6.1-beta => github.com/breez/lnd v0.6.1-beta.0.20190531100753-3cb93d95ef6c

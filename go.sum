@@ -32,6 +32,8 @@ github.com/breez/lightninglib v0.4.2-beta.0.20190407174954-d32d4231e0fc h1:NDliw
 github.com/breez/lightninglib v0.4.2-beta.0.20190407174954-d32d4231e0fc/go.mod h1:TobiMK8gxNX9rRz55/4dxRpQTCJQ+0ydGuflUB0mGwM=
 github.com/breez/lnd v0.6.1-beta.0.20190528065730-b6214f70b9bc h1:kuW07Iv9Evdb9lx46L+yyKdin/M+LaBxsDNrpCCkhoo=
 github.com/breez/lnd v0.6.1-beta.0.20190528065730-b6214f70b9bc/go.mod h1:eS3U1ZRjGUWRYxo17rKoxiMr6cRGSe6xduRncywlWzc=
+github.com/breez/lnd v0.6.1-beta.0.20190531100753-3cb93d95ef6c h1:b87+EeL0ltaVQop4D7//JiU0Q/bkui3fCySgEFeJVXQ=
+github.com/breez/lnd v0.6.1-beta.0.20190531100753-3cb93d95ef6c/go.mod h1:8mTLTQWnhvyn9TVBZVN9Ye64gmVt6sC06gObK43QGzQ=
 github.com/btcsuite/btcd v0.0.0-20180823030728-d81d8877b8f3/go.mod h1:Dmm/EzmjnCiweXmzRIAiUWCInVmPgjkzgv5k4tVyXiQ=
 github.com/btcsuite/btcd v0.0.0-20180824064422-ed77733ec07dfc8a513741138419b8d9d3de9d2d/go.mod h1:d3C0AkH6BRcvO8T0UEPu53cnw4IbV63x1bEjildYhO0=
 github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2/go.mod h1:Jr9bmNVGZ7TH2Ux1QuP0ec+yGgh0gE9FIlkzQiI5bR0=
@@ -53,6 +55,7 @@ github.com/btcsuite/btcwallet v0.0.0-20190123033236-ba03278a64bc h1:E7lDde/zAxAf
 github.com/btcsuite/btcwallet v0.0.0-20190123033236-ba03278a64bc/go.mod h1:+u1ftn+QOb9qHKwsLf7rBOr0PHCo9CGA7U1WFq7VLA4=
 github.com/btcsuite/btcwallet v0.0.0-20190313032608-acf3b04b0273/go.mod h1:mkOYY8/psBiL5E+Wb0V7M0o+N7NXi2SZJz6+RKkncIc=
 github.com/btcsuite/btcwallet v0.0.0-20190319010515-89ab2044f962/go.mod h1:qMi4jGpAO6YRsd81RYDG7o5pBIGqN9faCioJdagLu64=
+github.com/btcsuite/btcwallet v0.0.0-20190424224017-9d95f76e99a7/go.mod h1:qMi4jGpAO6YRsd81RYDG7o5pBIGqN9faCioJdagLu64=
 github.com/btcsuite/btcwallet v0.0.0-20190524003533-2c05240dff28 h1:jn9dKmISiudJAihPQ2XRQenffPkhQeoBh3SCiZSfFXE=
 github.com/btcsuite/btcwallet v0.0.0-20190524003533-2c05240dff28/go.mod h1:GlcKHrCBxtujd/6coLUvczN68EkaBezgyN+JnEGVDUY=
 github.com/btcsuite/fastsha256 v0.0.0-20160815193821-637e65642941 h1:kij1x2aL7VE6gtx8KMIt8PGPgI5GV9LgtHFG5KaEMPY=
@@ -80,6 +83,7 @@ github.com/coreos/bbolt v0.0.0-20180223184059-7ee3ded59d4835e10f3e7d0f7603c42aa5
 github.com/coreos/bbolt v1.3.2 h1:wZwiHHUieZCquLkDL0B8UhzreNWsPHooDAG3q34zk0s=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/davecgh/go-spew v0.0.0-20171005155431-ecdeabc65495/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
@@ -150,6 +154,7 @@ github.com/lightninglabs/neutrino v0.0.0-20190115022559-351f5f06c6af h1:JzoYbWqw
 github.com/lightninglabs/neutrino v0.0.0-20190115022559-351f5f06c6af/go.mod h1:aR+E6cs+FTaIwIa/WLyvNsB8FZg8TiP3r0Led+4Q4gI=
 github.com/lightninglabs/neutrino v0.0.0-20190213031021-ae4583a89cfb/go.mod h1:g6cMQd+hfAU8pQTJAdjm6/EQREhupyd22f+CL0qYFOE=
 github.com/lightninglabs/neutrino v0.0.0-20190313035638-e1ad4c33fb18/go.mod h1:v6tz6jbuAubTrRpX8ke2KH9sJxml8KlPQTKgo9mAp1Q=
+github.com/lightninglabs/neutrino v0.0.0-20190426010803-a655679fe131/go.mod h1:/XWY/6/btfsknUpLPV8vvIZyhod61zYaUJiE8HxsFUs=
 github.com/lightninglabs/neutrino v0.0.0-20190521105038-03deaa76ddc2 h1:309vLN4dOi1CTqylpb8CsCWo1nT59rMrluZUF2228e0=
 github.com/lightninglabs/neutrino v0.0.0-20190521105038-03deaa76ddc2/go.mod h1:/XWY/6/btfsknUpLPV8vvIZyhod61zYaUJiE8HxsFUs=
 github.com/lightningnetwork/lightning-onion v0.0.0-20180605012408-ac4d9da8f1d6 h1:ONLGrYJVQdbtP6CE/ff1KNWZtygRGEh12RzonTiCzPs=
@@ -177,6 +182,7 @@ github.com/onsi/gomega v1.4.1/go.mod h1:C1qb7wdrVGGVU+Z6iS04AVkA3Q65CEZX59MT0QO5
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/roasbeef/btcd v0.0.0-20180418012700-a03db407e40d h1:3p7ZK0clyDVNQL3a5q4jTaTDv5YzW4AxkdftpBZxsrU=
 github.com/roasbeef/btcd v0.0.0-20180418012700-a03db407e40d/go.mod h1:A6JDd1s2zvd0LJNnhvindLqoL7gzisoxi5QlvRH7rmY=
 github.com/roasbeef/btcrpcclient v0.0.0-20170622074026-d0f4db8b4dad h1:CUwA46cQ1abMrOc8Qjxfi4VS1rThf+/tpBoMGqQdXxI=
@@ -187,9 +193,12 @@ github.com/roasbeef/btcwallet v0.0.0-20180426223453-30affec83c18 h1:QxTtAp0pMrok
 github.com/roasbeef/btcwallet v0.0.0-20180426223453-30affec83c18/go.mod h1:goBH4LGKmFYicHRfH1xJhWiBZE9mB73fngtZ2hacyCk=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af h1:gu+uRPtBe88sKxUCEXRoeCvVG90TJmwhiqRpvdhQFng=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/tv42/zbase32 v0.0.0-20160707012821-501572607d02 h1:tcJ6OjwOMvExLlzrAVZute09ocAGa7KqOON60++Gz4E=
 github.com/tv42/zbase32 v0.0.0-20160707012821-501572607d02/go.mod h1:tHlrkM198S068ZqfrO6S8HsoJq2bF3ETfTL+kt4tInY=
 github.com/urfave/cli v1.18.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
+github.com/wasmerio/go-ext-wasm v0.0.0-20190529183953-15a798de9af3/go.mod h1:UkqsV9/yC6+lwjqMq7fpBrxhhGKH0VzqT7nAFR4jS9I=
 go.etcd.io/bbolt v1.3.0/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.15.0 h1:r1SzcjSm4ybA0qZs3B4QYX072f8gK61Kh0qtwyFpfdk=
