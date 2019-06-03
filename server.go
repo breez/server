@@ -43,8 +43,8 @@ import (
 const (
 	imageDimensionLength    = 200
 	channelAmount           = 1000000
-	depositBalanceThreshold = 500000
-	minRemoveFund           = depositBalanceThreshold / 10
+	depositBalanceThreshold = 900000
+	minRemoveFund           = 50000
 	chanReserve             = 600
 )
 
