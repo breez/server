@@ -244,6 +244,7 @@ func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) 
 		Pubkey: in.Pubkey,
 	})
 	if err != nil {
+		log.Printf("subswapClient.SubSwapServiceInit (hash:%v, pubkey:%v) error: %v", in.Hash, in.Pubkey, err)
 		return nil, err
 	}
 
