@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"strings"
+	"os"	
 	"sync"
 
 	"firebase.google.com/go/messaging"
@@ -114,5 +113,5 @@ func notifyAlertMessage(title, body string, data map[string]string, token string
 }
 
 func isUnregisteredError(err error) bool {
-	return strings.Contains(err.Error(), "not a valid FCM registration token")
+	return messaging.IsRegistrationTokenNotRegistered(err)	
 }
