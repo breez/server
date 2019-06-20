@@ -32,4 +32,4 @@ require (
 	google.golang.org/grpc v1.18.0
 )
 
-replace github.com/lightningnetwork/lnd v0.6.1-beta => github.com/breez/lnd v0.6.1-beta.0.20190531100753-3cb93d95ef6c
+replace github.com/lightningnetwork/lnd v0.6.1-beta => github.com/breez/lnd v0.6.1-beta.0.20190620192717-c84f62d260b7

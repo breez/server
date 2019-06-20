@@ -345,9 +345,14 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
 	}
 
+	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{Hash: decodedPayReq.PaymentHash[:]})
+	if utxos.Amount < 2*fees.Amount {
+		return nil, status.Errorf(codes.Internal, "total UTXO not sufficient to create the redeem transaction")
+	}
+
 	// Determine if the amount in payment request is the same as in the address UTXOs
 	if utxos.Amount != decodedAmt {
-		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to one in client's payment request")
+		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to the amount in client's payment request")
 	}
 
 	// Get the current blockheight
