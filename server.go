@@ -346,7 +346,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{Hash: decodedPayReq.PaymentHash[:]})
-	if utxos.Amount < 2*fees.Amount {
+	if utxos.Amount < 3*fees.Amount {
 		return nil, status.Errorf(codes.Internal, "total UTXO not sufficient to create the redeem transaction")
 	}
 
