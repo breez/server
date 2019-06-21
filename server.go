@@ -346,6 +346,11 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{Hash: decodedPayReq.PaymentHash[:]})
+	if err != nil {
+		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
+		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
+	}
+	log.Printf("SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
 	if utxos.Amount < 3*fees.Amount {
 		return nil, status.Errorf(codes.Internal, "total UTXO not sufficient to create the redeem transaction")
 	}
@@ -358,6 +363,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	// Get the current blockheight
 	chainInfo, err := client.GetInfo(clientCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
+		log.Printf("GetSwapPayment - GetInfo error: %v", err)
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
