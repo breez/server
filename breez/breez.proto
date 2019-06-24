@@ -22,6 +22,7 @@ service Pos {
 
 service Information {
   rpc Ping (PingRequest) returns (PingReply) {}
+  rpc Rates (RatesRequest) returns (RatesReply) {}
 }
 
 service FundManager {
@@ -42,6 +43,15 @@ service CTP {
 
 service SyncNotifier {
   rpc RegisterPeriodicSync(RegisterPeriodicSyncRequest) returns (RegisterPeriodicSyncResponse) {}
+}
+
+message RatesRequest {}
+message Rate {
+  string coin = 1;
+  double value = 2;
+}
+message RatesReply {
+  repeated Rate rates = 1;
 }
 
 message OpenChannelRequest {
