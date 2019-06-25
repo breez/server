@@ -31,5 +31,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
-	fmt.Printf("Rates: %#v\n", r)
+	//fmt.Printf("Rates: %#v\n", r)
+	for _, rate := range r.Rates {
+		fmt.Printf("%s: %f\n", rate.Coin, rate.Value)
+	}
 }
