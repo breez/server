@@ -345,7 +345,10 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
 	}
 
-	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{Hash: decodedPayReq.PaymentHash[:]})
+	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
+		Hash:       decodedPayReq.PaymentHash[:],
+		TargetConf: 12,
+	})
 	if err != nil {
 		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
 		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
@@ -381,7 +384,10 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	// Redeem the transaction
-	redeem, err := subswapClient.SubSwapServiceRedeem(clientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{Preimage: sendResponse.PaymentPreimage})
+	redeem, err := subswapClient.SubSwapServiceRedeem(clientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
+		Preimage:   sendResponse.PaymentPreimage,
+		TargetConf: 12,
+	})
 	if err != nil {
 		log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		return nil, err
