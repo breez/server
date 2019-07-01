@@ -315,6 +315,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	// Decode the the client's payment request
 	decodedPayReq, err := zpay32.Decode(in.PaymentRequest, network)
 	if err != nil {
+		log.Printf("GetSwapPayment - Error in zpay32.Decode: %v", err)
 		return nil, status.Errorf(codes.Internal, "payment request is not valid")
 	}
 
@@ -325,15 +326,17 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 
 	maxAllowedDeposit, err := getMaxAllowedDeposit(hex.EncodeToString(decodedPayReq.Destination.SerializeCompressed()))
 	if err != nil {
+		log.Printf("GetSwapPayment - getMaxAllowedDeposit error: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
 	}
 	if decodedAmt > maxAllowedDeposit {
+		log.Printf("GetSwapPayment - decodedAmt > maxAllowedDeposit: %v > %v", decodedAmt, maxAllowedDeposit)
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
 			PaymentError:       fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit),
 		}, nil
 	}
-	log.Printf("paying node %v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
+	log.Printf("GetSwapPayment - paying node %#v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	utxos, err := subswapClient.UnspentAmount(clientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
@@ -353,7 +356,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
 		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
 	}
-	log.Printf("SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
+	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
 	if utxos.Amount < 3*fees.Amount {
 		return nil, status.Errorf(codes.Internal, "total UTXO not sufficient to create the redeem transaction")
 	}
@@ -379,7 +382,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		if sendResponse != nil && sendResponse.PaymentError != "" {
 			err = fmt.Errorf("Error in payment response: %v", sendResponse.PaymentError)
 		}
-		log.Printf("SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
+		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
 		return nil, err
 	}
 
@@ -389,11 +392,11 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		TargetConf: 12,
 	})
 	if err != nil {
-		log.Printf("couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
+		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		return nil, err
 	}
 
-	log.Printf("redeem tx broadcast: %v", redeem.Txid)
+	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
