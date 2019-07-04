@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +12,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
 	"github.com/gomodule/redigo/redis"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"golang.org/x/sync/singleflight"
@@ -73,6 +79,42 @@ func subscribeTransactions() {
 	}
 }
 
+func destAddresses(tx *lnrpc.Transaction) ([]string, error) {
+	if len(tx.DestAddresses) > 0 {
+		return tx.DestAddresses, nil
+	}
+	if tx.RawTxHex == "" {
+		return nil, nil
+	}
+	rawTx, err := hex.DecodeString(tx.RawTxHex)
+	if err != nil {
+		return nil, err
+	}
+	wireTx := &wire.MsgTx{}
+	txReader := bytes.NewReader(rawTx)
+
+	if err := wireTx.Deserialize(txReader); err != nil {
+		return nil, err
+	}
+	var destAddresses []btcutil.Address
+	chainParams := &chaincfg.MainNetParams
+	for _, txOut := range wireTx.TxOut {
+		_, outAddresses, _, err :=
+			txscript.ExtractPkScriptAddrs(txOut.PkScript, chainParams)
+		if err != nil {
+			return nil, err
+		}
+
+		destAddresses = append(destAddresses, outAddresses...)
+	}
+
+	dest := make([]string, 0, len(destAddresses))
+	for _, destAddress := range destAddresses {
+		dest = append(dest, destAddress.EncodeAddress())
+	}
+	return dest, nil
+}
+
 func subscribeTransactionsOnce() error {
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	transactionStream, err := client.SubscribeTransactions(clientCtx, &lnrpc.GetTransactionsRequest{})
@@ -92,6 +134,10 @@ func subscribeTransactionsOnce() error {
 			return err
 		}
 		//log.Printf("t:%#v", t)
+		t.DestAddresses, err = destAddresses(t)
+		if err != nil {
+			log.Printf("transactionStream - Error in destAddresses: %v", err)
+		}
 		key := t.TxHash
 		if t.NumConfirmations == 0 {
 			key = key + "-unconfirmed"
