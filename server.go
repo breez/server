@@ -333,6 +333,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("GetSwapPayment - decodedAmt > maxAllowedDeposit: %v > %v", decodedAmt, maxAllowedDeposit)
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
+			SwapError:          breez.GetSwapPaymentReply_FUNDS_EXCEED_LIMIT,
 			PaymentError:       fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit),
 		}, nil
 	}
@@ -358,12 +359,20 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
 	if utxos.Amount < 3*fees.Amount {
-		return nil, status.Errorf(codes.Internal, "total UTXO not sufficient to create the redeem transaction")
+		return &breez.GetSwapPaymentReply{
+			FundsExceededLimit: true,
+			SwapError:          breez.GetSwapPaymentReply_TX_TOO_SMALL,
+			PaymentError:       "total UTXO not sufficient to create the redeem transaction",
+		}, nil
 	}
 
 	// Determine if the amount in payment request is the same as in the address UTXOs
 	if utxos.Amount != decodedAmt {
-		return nil, status.Errorf(codes.Internal, "total UTXO amount not equal to the amount in client's payment request")
+		return &breez.GetSwapPaymentReply{
+			FundsExceededLimit: true,
+			SwapError:          breez.GetSwapPaymentReply_INVOICE_AMOUNT_MISMATCH,
+			PaymentError:       "total UTXO amount not equal to the amount in client's payment request",
+		}, nil
 	}
 
 	// Get the current blockheight
@@ -374,7 +383,11 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	if 4*(int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight) > 3*utxos.LockHeight {
-		return nil, status.Errorf(codes.Internal, "client transaction older than redeem block treshold")
+		return &breez.GetSwapPaymentReply{
+			FundsExceededLimit: true,
+			SwapError:          breez.GetSwapPaymentReply_SWAP_EXPIRED,
+			PaymentError:       "client transaction older than redeem block treshold",
+		}, nil
 	}
 
 	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
