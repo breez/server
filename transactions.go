@@ -205,7 +205,7 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 					return err
 				}
 				amt := strconv.FormatInt(tx.Amount, 10)
-				go notifyClientTransaction(tx, i, "Unconfirmed transaction", "Breez", "Breez is waiting for "+amt+" sat to be confirmed. Confirmation usually takes ~10 minutes to be completed.", false)
+				go notifyClientTransaction(tx, i, "Unconfirmed transaction", "Breez", "Breez is waiting for "+amt+" sat to be confirmed.", false)
 				break
 			}
 		}
