@@ -20,6 +20,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/breez/server/breez"
+	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -597,6 +598,8 @@ func main() {
 	}
 	go deliverSyncNotifications()
 
+	lsp.InitLSP()
+
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
@@ -633,9 +636,16 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 10, 1000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1009, 100000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 5, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 500, 1000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 5, 10, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 500, 1000, 86400),
 		),
 	)
 
+	breez.RegisterChannelOpenerServer(s, &lsp.Server{
+		EmailNotifier: sendOpenChannelNotification,
+	})
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})
 	breez.RegisterInformationServer(s, &server{})
