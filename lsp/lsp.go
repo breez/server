@@ -1,10 +1,11 @@
 package lsp
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 
@@ -60,20 +61,15 @@ func InitLSP() error {
 }
 
 func readConfig() error {
-	filename := os.Getenv("LSP_CONFIG_FILE")
-	file, err := os.Open(filename)
+	lspConfig := os.Getenv("LSP_CONFIG")
+	err := loadConfig(bytes.NewReader([]byte(lspConfig)))
 	if err != nil {
-		return errors.Wrapf(err, "Unable to open %s", filename)
-	}
-	defer file.Close()
-	err = loadConfig(bufio.NewReader(file))
-	if err != nil {
-		return errors.Wrapf(err, "Unable to load the configuration from %s", filename)
+		return errors.Wrapf(err, "Unable to load the configuration from %s", lspConfig)
 	}
 	return nil
 }
 
-func loadConfig(reader *bufio.Reader) error {
+func loadConfig(reader io.Reader) error {
 	dec := json.NewDecoder(reader)
 	return dec.Decode(&lspList)
 }
