@@ -41,14 +41,15 @@ func InitLSP() error {
 	if err != nil {
 		return errors.Wrapf(err, "Error in LSP Initialization")
 	}
+	log.Printf("LSP Configuration: %#v", lspList)
 	systemCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return errors.Wrapf(err, "Error getting SystemCertPool in InitLSP")
 	}
 	creds := credentials.NewClientTLSFromCert(systemCertPool, "")
 	lspdClients = make(map[string]lspdrpc.ChannelOpenerClient, len(lspList))
-
 	for id, LSP := range lspList {
+		log.Printf("LSP id: %v; server: %v; token: %v", id, LSP.Server, LSP.Token)
 		if LSP.Server != "" {
 			conn, err := grpc.Dial(LSP.Server, grpc.WithTransportCredentials(creds))
 			if err != nil {
@@ -65,6 +66,7 @@ func readConfig() error {
 	lspConfig := os.Getenv("LSP_CONFIG")
 	err := loadConfig(bytes.NewReader([]byte(lspConfig)))
 	if err != nil {
+		log.Printf("Unable to load the configuration from %s: %v", lspConfig, err)
 		return errors.Wrapf(err, "Unable to load the configuration from %s", lspConfig)
 	}
 	return nil
