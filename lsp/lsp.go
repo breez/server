@@ -46,6 +46,7 @@ func InitLSP() error {
 		return errors.Wrapf(err, "Error getting SystemCertPool in InitLSP")
 	}
 	creds := credentials.NewClientTLSFromCert(systemCertPool, "")
+	lspdClients = make(map[string]lspdrpc.ChannelOpenerClient, len(lspList))
 
 	for id, LSP := range lspList {
 		if LSP.Server != "" {
