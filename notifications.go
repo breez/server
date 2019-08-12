@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"log"
-	"os"	
+	"os"
 	"sync"
 
 	"firebase.google.com/go/messaging"
@@ -113,5 +113,5 @@ func notifyAlertMessage(title, body string, data map[string]string, token string
 }
 
 func isUnregisteredError(err error) bool {
-	return messaging.IsRegistrationTokenNotRegistered(err)	
+	return messaging.IsRegistrationTokenNotRegistered(err)
 }
