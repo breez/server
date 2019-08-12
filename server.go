@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/breez/server/auth"
 	"github.com/breez/server/breez"
 	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
@@ -602,6 +603,7 @@ func main() {
 
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
+			auth.UnaryAuth("/breez.ChannelOpener/", os.Getenv("LSP_TOKEN")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/SendInvoice", 3, 100, 86400),
