@@ -22,6 +22,7 @@ require (
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
 	github.com/lightningnetwork/lnd v0.7.0-beta
+	github.com/mojocn/base64Captcha v0.0.0-20190801020520-752b1cd608b2
 	github.com/pkg/errors v0.8.0
 	go.opencensus.io v0.15.0 // indirect
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
