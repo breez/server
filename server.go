@@ -640,10 +640,10 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 10, 1000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1009, 100000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 5, 10, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 500, 1000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 5, 10, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 500, 1000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 10, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 1000, 1000, 86400),
 		),
 	)
 
