@@ -2,49 +2,80 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
 	"log"
 	"os"
 	"strconv"
 
-	sp "github.com/SparkPost/gosparkpost"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/breez/server/breez"
 )
 
-func sendEmail(email, name, from, content, subject string) error {
-	apiKey := os.Getenv("SPARKPOST_API_KEY")
-	cfg := &sp.Config{
-		BaseUrl:    "https://api.sparkpost.com",
-		ApiKey:     apiKey,
-		ApiVersion: 1,
-	}
-	var client sp.Client
-	err := client.Init(cfg)
+const (
+	charset = "UTF-8"
+)
+
+func addresses(a string) (addr []*string) {
+	json.Unmarshal([]byte(a), &addr)
+	return
+}
+
+func sendEmail(to, cc, from, content, subject string) error {
+
+	sess, err := session.NewSession(&aws.Config{})
 	if err != nil {
-		log.Printf("SparkPost client init failed: %s", err)
+		log.Printf("Error in session.NewSession: %v", err)
 		return err
 	}
+	svc := ses.New(sess)
 
-	// Create a Transmission using an inline Recipient List
-	// and inline email Content.
-	tx := &sp.Transmission{
-		Recipients: []sp.Recipient{{Address: sp.Address{Email: email, Name: name}}},
-		Content: sp.Content{
-			HTML:    content,
-			From:    from,
-			Subject: subject,
+	input := &ses.SendEmailInput{
+		Destination: &ses.Destination{
+			CcAddresses: addresses(cc),
+			ToAddresses: addresses(to),
 		},
+		Message: &ses.Message{
+			Body: &ses.Body{
+				Html: &ses.Content{
+					Charset: aws.String(charset),
+					Data:    aws.String(content),
+				},
+			},
+			Subject: &ses.Content{
+				Charset: aws.String(charset),
+				Data:    aws.String(subject),
+			},
+		},
+		Source: aws.String(from),
 	}
-	id, _, err := client.Send(tx)
+	// Attempt to send the email.
+	result, err := svc.SendEmail(input)
 	if err != nil {
-		log.Printf("Error sending email: %v", err)
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ses.ErrCodeMessageRejected:
+				log.Println(ses.ErrCodeMessageRejected, aerr.Error())
+			case ses.ErrCodeMailFromDomainNotVerifiedException:
+				log.Println(ses.ErrCodeMailFromDomainNotVerifiedException, aerr.Error())
+			case ses.ErrCodeConfigurationSetDoesNotExistException:
+				log.Println(ses.ErrCodeConfigurationSetDoesNotExistException, aerr.Error())
+			default:
+				log.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			log.Println(err.Error())
+		}
 		return err
 	}
 
-	// The second value returned from Send
-	// has more info about the HTTP response, in case
-	// you'd like to see more than the Transmission id.
-	log.Printf("Transmission sent with id [%s]\n", id)
+	log.Printf("Email sent with result:\n%v", result)
+
 	return nil
 }
 
@@ -71,8 +102,8 @@ func sendCardOrderNotification(in *breez.OrderRequest) error {
 	}
 
 	err = sendEmail(
-		os.Getenv("CARD_NOTIFICATION_EMAIL"),
-		os.Getenv("CARD_NOTIFICATION_NAME"),
+		os.Getenv("CARD_NOTIFICATION_TO"),
+		os.Getenv("CARD_NOTIFICATION_CC"),
 		os.Getenv("CARD_NOTIFICATION_FROM"),
 		html.String(),
 		"Card Order",
@@ -105,9 +136,9 @@ func sendOpenChannelNotification(nid, txid string, index uint32) error {
 	}
 
 	err = sendEmail(
-		os.Getenv("CARD_NOTIFICATION_EMAIL"),
-		os.Getenv("CARD_NOTIFICATION_NAME"),
-		os.Getenv("CARD_NOTIFICATION_FROM"),
+		os.Getenv("OPENCHANNEL_NOTIFICATION_TO"),
+		os.Getenv("OPENCHANNEL_NOTIFICATION_CC"),
+		os.Getenv("OPENCHANNEL_NOTIFICATION_FROM"),
 		html.String(),
 		"Open Channel",
 	)

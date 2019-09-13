@@ -5,6 +5,7 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
 	firebase.google.com/go v3.7.0+incompatible
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
+	github.com/aws/aws-sdk-go v1.23.21
 	github.com/breez/lspd v0.0.0-20190722134223-a4ab8bf8fa84
 	github.com/btcsuite/btcd v0.0.0-20190629003639-c26ffa870fd8
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
