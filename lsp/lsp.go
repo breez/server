@@ -24,14 +24,25 @@ type Server struct {
 	EmailNotifier func(nid, txid string, index uint32) error
 }
 
-// LSP represents the infos about a LSP
-type LSP struct {
+// lspdLSP represents the infos about a LSP running lspd
+type lspdLSP struct {
 	Server string
 	Token  string
 }
 
+// lnurlLSP represents the infos about a LSP using lnurl
+type lnurlLSP struct {
+	Name      string
+	WidgetURL string
+}
+
+type lspConfig struct {
+	LspdList  map[string]lspdLSP  `json:"lspd,omitempty"`
+	LnurlList map[string]lnurlLSP `json:"lnurl,omitempty"`
+}
+
 var (
-	lspList     map[string]LSP
+	lspConf     lspConfig
 	lspdClients map[string]lspdrpc.ChannelOpenerClient
 )
 
@@ -41,14 +52,14 @@ func InitLSP() error {
 	if err != nil {
 		return errors.Wrapf(err, "Error in LSP Initialization")
 	}
-	log.Printf("LSP Configuration: %#v", lspList)
+	log.Printf("LSP Configuration: %#v", lspConf)
 	systemCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return errors.Wrapf(err, "Error getting SystemCertPool in InitLSP")
 	}
 	creds := credentials.NewClientTLSFromCert(systemCertPool, "")
-	lspdClients = make(map[string]lspdrpc.ChannelOpenerClient, len(lspList))
-	for id, LSP := range lspList {
+	lspdClients = make(map[string]lspdrpc.ChannelOpenerClient, len(lspConf.LspdList))
+	for id, LSP := range lspConf.LspdList {
 		log.Printf("LSP id: %v; server: %v; token: %v", id, LSP.Server, LSP.Token)
 		if LSP.Server != "" {
 			conn, err := grpc.Dial(LSP.Server, grpc.WithTransportCredentials(creds))
@@ -74,14 +85,14 @@ func readConfig() error {
 
 func loadConfig(reader io.Reader) error {
 	dec := json.NewDecoder(reader)
-	return dec.Decode(&lspList)
+	return dec.Decode(&lspConf)
 }
 
 // LSPList returns the list of active lsps
 func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.LSPListReply, error) {
 	r := breez.LSPListReply{Lsps: make(map[string]*breez.LSPInformation)}
 	for id, c := range lspdClients {
-		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspList[id].Token)
+		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspConf.LspdList[id].Token)
 		ci, err := c.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.Pubkey})
 		if err != nil {
 			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
@@ -100,12 +111,15 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 			r.Lsps[id] = li
 		}
 	}
+	for id, c := range lspConf.LnurlList {
+		r.Lsps[id] = &breez.LSPInformation{Name: c.Name, WidgetUrl: c.WidgetURL}
+	}
 	return &r, nil
 }
 
 // OpenLSPChannel call OpenChannel of the lspd given by it's id
 func (s *Server) OpenLSPChannel(ctx context.Context, in *breez.OpenLSPChannelRequest) (*breez.OpenLSPChannelReply, error) {
-	lsp, ok := lspList[in.LspId]
+	lsp, ok := lspConf.LspdList[in.LspId]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
