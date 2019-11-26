@@ -612,7 +612,7 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/SendInvoice", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CardOrderer/Order", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CardOrderer/Order", 100, 10000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/RegisterDevice", 3, 10, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/RegisterDevice", 10, 20, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/RegisterDevice", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/UploadLogo", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Pos/UploadLogo", 100, 10000, 86400),
