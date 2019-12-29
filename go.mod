@@ -7,7 +7,7 @@ require (
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
 	github.com/aws/aws-sdk-go v1.23.21
 	github.com/breez/lspd v0.0.0-20190722134223-a4ab8bf8fa84
-	github.com/btcsuite/btcd v0.0.0-20190629003639-c26ffa870fd8
+	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
 	github.com/codahale/chacha20 v0.0.0-20151107025005-ec07b4f69a3f // indirect
@@ -21,7 +21,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
-	github.com/lightningnetwork/lnd v0.7.0-beta
+	github.com/lightningnetwork/lnd v0.8.0-beta-rc3.0.20191221022352-72a49d486ae4
 	github.com/mojocn/base64Captcha v0.0.0-20190801020520-752b1cd608b2
 	github.com/pkg/errors v0.8.0
 	go.opencensus.io v0.15.0 // indirect
@@ -33,6 +33,6 @@ require (
 	google.golang.org/grpc v1.22.0
 )
 
-replace github.com/lightningnetwork/lnd v0.7.0-beta => github.com/breez/lnd v0.7.0-beta.0.20190704080717-2fa048807c28
+replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.8.0-beta.0.20191212101524-70e19d1e5d35
 
 go 1.13

@@ -14,9 +14,11 @@ import (
 	"image/png"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/breez/server/auth"
@@ -30,7 +32,9 @@ import (
 	"github.com/gomodule/redigo/redis"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
+	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/lightningnetwork/lnd/zpay32"
 
 	"golang.org/x/sync/singleflight"
@@ -54,6 +58,8 @@ const (
 
 var client lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
+var walletKitClient walletrpc.WalletKitClient
+var chainNotifierClient chainrpc.ChainNotifierClient
 var network *chaincfg.Params
 var openChannelReqGroup singleflight.Group
 
@@ -571,10 +577,27 @@ func main() {
 		network = &chaincfg.MainNetParams
 	}
 
-	lis, err := net.Listen("tcp", os.Getenv("LISTEN_ADDRESS"))
+	lisGRPC, err := net.Listen("tcp", os.Getenv("GRPC_LISTEN_ADDRESS"))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+
+	lisHTTP, err := net.Listen("tcp", os.Getenv("HTTP_LISTEN_ADDRESS"))
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/fees/v1/btc-fee-estimates.json", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(feeEstimates))
+	})
+	HTTPServer := &http.Server{
+		Handler:        mux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	go HTTPServer.Serve(lisHTTP)
 
 	// Creds file to connect to LND gRPC
 	cp := x509.NewCertPool()
@@ -591,8 +614,11 @@ func main() {
 	defer conn.Close()
 	client = lnrpc.NewLightningClient(conn)
 	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(conn)
+	walletKitClient = walletrpc.NewWalletKitClient(conn)
+	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
 	go subscribeTransactions()
 	go handlePastTransactions()
+	startFeeEstimates()
 
 	err = redisConnect()
 	if err != nil {
@@ -660,7 +686,7 @@ func main() {
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
+	if err := s.Serve(lisGRPC); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
