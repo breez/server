@@ -1,0 +1,1 @@
+DROP INDEX public.tx_notifications_boltz_reverse_swap_timeout;

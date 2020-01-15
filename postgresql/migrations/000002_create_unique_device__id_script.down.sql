@@ -1,0 +1,1 @@
+ALTER TABLE public.tx_notifications DROP CONSTRAINT tx_notifications_device__id_script;

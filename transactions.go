@@ -222,7 +222,7 @@ func handleTransactionNotifications(tx *lnrpc.Transaction) error {
 }
 
 func handleTransactionAddreses(tx *lnrpc.Transaction) error {
-	log.Printf("t:%#v", tx)
+	//log.Printf("t:%#v", tx)
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
 	for i, a := range tx.DestAddresses {

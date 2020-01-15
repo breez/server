@@ -626,6 +626,12 @@ func main() {
 	}
 	go deliverSyncNotifications()
 
+	err = pgConnect()
+	if err != nil {
+		log.Printf("pgConnect error: %v", err)
+	}
+	go registerPastBoltzReverseSwapTxNotifications()
+
 	lsp.InitLSP()
 
 	s := grpc.NewServer(
@@ -670,6 +676,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 1000, 1000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 10, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 1000, 1000, 86400),
 		),
 	)
 
@@ -683,6 +691,7 @@ func main() {
 	breez.RegisterFundManagerServer(s, &server{})
 	breez.RegisterCTPServer(s, &server{})
 	breez.RegisterSyncNotifierServer(s, &server{})
+	breez.RegisterPushTxNotifierServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
