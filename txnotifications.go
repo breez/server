@@ -79,12 +79,39 @@ func hashString(h []byte) string {
 	return ch.String()
 }
 
+func callFromBlockHeight(f func(), blockHeight uint32) {
+	cancellableCtx, cancel := context.WithCancel(context.Background())
+	clientCtx := metadata.AppendToOutgoingContext(cancellableCtx, "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	stream, err := chainNotifierClient.RegisterBlockEpochNtfn(clientCtx, &chainrpc.BlockEpoch{})
+	if err != nil {
+		log.Printf("chainNotifierClient.RegisterBlockEpochNtfn(): %v", err)
+		cancel()
+	}
+	go func() {
+		for {
+			block, err := stream.Recv()
+			if err != nil {
+				log.Printf("stream.Recv: %v", err)
+				return
+			}
+			if block.Height >= blockHeight {
+				f()
+				break
+			}
+		}
+		cancel()
+	}()
+}
+
 func registerTxNotification(u *uuid.UUID, in *breez.PushTxNotificationRequest) (*breez.PushTxNotificationResponse, error) {
-	var boltzID string
 	var txType int32
+	var boltzReverseSwapInfo *BoltzReverseSwapInfo
 	switch x := in.Info.(type) {
 	case *breez.PushTxNotificationRequest_BoltzReverseSwapLockupTxInfo:
-		boltzID = x.BoltzReverseSwapLockupTxInfo.BoltzId
+		boltzReverseSwapInfo = &BoltzReverseSwapInfo{
+			ID:                 x.BoltzReverseSwapLockupTxInfo.BoltzId,
+			TimeoutBlockHeight: x.BoltzReverseSwapLockupTxInfo.TimeoutBlockHeight,
+		}
 		txType = TypeBoltzReverseSwapLockup
 	default:
 		txType = TypeUnknown
@@ -128,9 +155,9 @@ func registerTxNotification(u *uuid.UUID, in *breez.PushTxNotificationRequest) (
 			break
 		}
 		if txType == TypeBoltzReverseSwapLockup {
-			_, _, tx, _, err := boltz.GetTransaction(boltzID, "", 0)
+			_, _, tx, _, err := boltz.GetTransaction(boltzReverseSwapInfo.ID, "", 0)
 			if err != nil {
-				log.Printf("boltz.GetTransaction(%v): %v", boltzID, err)
+				log.Printf("boltz.GetTransaction(%v): %v", boltzReverseSwapInfo.ID, err)
 				return
 			}
 			if hex.EncodeToString(confDetails.RawTx) != tx {
@@ -151,6 +178,9 @@ func registerTxNotification(u *uuid.UUID, in *breez.PushTxNotificationRequest) (
 		err := txNotified(*u, txHash, confDetails.RawTx, confDetails.BlockHeight, confDetails.BlockHash, confDetails.TxIndex)
 		log.Printf("txNotified(%v, %v, %x, %v, %x, %v): %v", *u, txHash.String(), confDetails.RawTx, confDetails.BlockHeight, confDetails.BlockHash, confDetails.TxIndex, err)
 	}()
+	if txType == TypeBoltzReverseSwapLockup {
+		callFromBlockHeight(cancel, boltzReverseSwapInfo.TimeoutBlockHeight)
+	}
 	return &breez.PushTxNotificationResponse{}, nil
 }
 
