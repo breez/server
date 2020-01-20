@@ -95,6 +95,7 @@ func callFromBlockHeight(f func(), blockHeight uint32) {
 				return
 			}
 			if block.Height >= blockHeight {
+				log.Printf("callFromBlockHeight: calling f() because: %v >= %v", block.Height, blockHeight)
 				f()
 				break
 			}
