@@ -111,3 +111,9 @@ func boltzReverseSwapToNotify(currentHeight uint32) (pgx.Rows, error) {
 		TypeBoltzReverseSwapLockup, StatusUnconfirmed, currentHeight,
 	)
 }
+
+func breezAppVersion() (pgx.Rows, error) {
+	return pgxPool.Query(context.Background(),
+		`SELECT version FROM breez_app_versions`,
+	)
+}

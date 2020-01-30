@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/breez/server/breez"
@@ -82,4 +83,24 @@ func normalizeVerString(str string) string {
 
 func (s *server) Ping(ctx context.Context, in *breez.PingRequest) (*breez.PingReply, error) {
 	return &breez.PingReply{Version: version()}, nil
+}
+
+func (s *server) BreezAppVersions(ctx context.Context, in *breez.BreezAppVersionsRequest) (*breez.BreezAppVersionsReply, error) {
+	rows, err := breezAppVersion()
+	if err != nil {
+		log.Printf("breezAppVersion(): %v", err)
+		return nil, fmt.Errorf("breezAppVersion(): %w", err)
+	}
+	defer rows.Close()
+	var versions []string
+	for rows.Next() {
+		var version string
+		err = rows.Scan(&version)
+		if err != nil {
+			log.Printf("rows.Scan: %v", err)
+			continue
+		}
+		versions = append(versions, version)
+	}
+	return &breez.BreezAppVersionsReply{Version: versions}, nil
 }

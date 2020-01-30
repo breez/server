@@ -32,4 +32,10 @@ func main() {
 		log.Fatalf("err: %v", err)
 	}
 	fmt.Printf("Breez server version: %s\n", r.Version)
+
+	v, err := c.BreezAppVersions(ctx, &breez.BreezAppVersionsRequest{})
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
+	fmt.Printf("Breez app versions: %#v\n", v.Version)
 }
