@@ -137,3 +137,19 @@ func (s *Server) OpenLSPChannel(ctx context.Context, in *breez.OpenLSPChannelReq
 	}
 	return &breez.OpenLSPChannelReply{}, nil
 }
+
+// RegisterPayment sends information concerning a payment used by the LSP to open a channel
+func (s *Server) RegisterPayment(ctx context.Context, in *breez.RegisterPaymentRequest) (*breez.RegisterPaymentReply, error) {
+	lsp, ok := lspConf.LspdList[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspdClient, ok := lspdClients[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
+	//TODO implements the function in lsp.
+	lspdClient.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.PubKey})
+	return &breez.RegisterPaymentReply{}, nil
+}
