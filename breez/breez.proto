@@ -97,21 +97,15 @@ message LSPInformation {
 
   int64 channel_fee_start_amount = 11;
   float channel_fee_rate = 12;
+
+  bytes lsp_pubkey = 13;
 }
 message LSPListReply {
   map<string, LSPInformation> lsps = 1; // The key is the lsp id
 }
 
-message LSPPaymentInformation {
-  bytes payment_hash = 1;
-  bytes payment_secret = 2;
-  bytes destination = 3;
-  int64 incoming_amount_msat = 4;
-  int64 outgoing_amount_msat = 5;
-}
 message RegisterPaymentRequest {
   string lsp_id = 1;
-  string pubKey = 2;
   bytes blob = 3;
 }
 message RegisterPaymentReply {}

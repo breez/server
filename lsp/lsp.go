@@ -149,7 +149,9 @@ func (s *Server) RegisterPayment(ctx context.Context, in *breez.RegisterPaymentR
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	//TODO implements the function in lsp.
-	lspdClient.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.PubKey})
+	_, err := lspdClient.RegisterPayment(clientCtx, &lspdrpc.RegisterPaymentRequest{Blob: in.Blob})
+	if err != nil {
+		return nil, err
+	}
 	return &breez.RegisterPaymentReply{}, nil
 }
