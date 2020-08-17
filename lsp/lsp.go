@@ -28,6 +28,7 @@ type Server struct {
 type lspdLSP struct {
 	Server string
 	Token  string
+	NoTLS  bool
 }
 
 // lnurlLSP represents the infos about a LSP using lnurl
@@ -62,7 +63,13 @@ func InitLSP() error {
 	for id, LSP := range lspConf.LspdList {
 		log.Printf("LSP id: %v; server: %v; token: %v", id, LSP.Server, LSP.Token)
 		if LSP.Server != "" {
-			conn, err := grpc.Dial(LSP.Server, grpc.WithTransportCredentials(creds))
+			var dialOptions []grpc.DialOption
+			if LSP.NoTLS {
+				dialOptions = append(dialOptions, grpc.WithInsecure())
+			} else {
+				dialOptions = append(dialOptions, grpc.WithTransportCredentials(creds))
+			}
+			conn, err := grpc.Dial(LSP.Server, dialOptions...)
 			if err != nil {
 				log.Printf("Failed to connect to server gRPC: %v", err)
 			} else {
