@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strconv"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -43,9 +41,8 @@ var (
 	}
 )
 
-func handlePastTransactions() error {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	transactionDetails, err := client.GetTransactions(clientCtx, &lnrpc.GetTransactionsRequest{})
+func handlePastTransactions(ctx context.Context, c lnrpc.LightningClient) error {
+	transactionDetails, err := c.GetTransactions(ctx, &lnrpc.GetTransactionsRequest{})
 	if err != nil {
 		log.Println("handlePastTransactions error:", err)
 		return err
@@ -68,10 +65,10 @@ func handlePastTransactions() error {
 	return nil
 }
 
-func subscribeTransactions() {
+func subscribeTransactions(ctx context.Context, c lnrpc.LightningClient) {
 	for {
 		log.Println("new subscribe")
-		err := subscribeTransactionsOnce()
+		err := subscribeTransactionsOnce(ctx, c)
 		if err != nil {
 			log.Println("subscribeTransactions:", err)
 		}
@@ -115,9 +112,8 @@ func destAddresses(tx *lnrpc.Transaction) ([]string, error) {
 	return dest, nil
 }
 
-func subscribeTransactionsOnce() error {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	transactionStream, err := client.SubscribeTransactions(clientCtx, &lnrpc.GetTransactionsRequest{})
+func subscribeTransactionsOnce(ctx context.Context, c lnrpc.LightningClient) error {
+	transactionStream, err := c.SubscribeTransactions(ctx, &lnrpc.GetTransactionsRequest{})
 	if err != nil {
 		log.Println("SubscribeTransactions:", err)
 		return err

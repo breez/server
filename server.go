@@ -56,7 +56,7 @@ const (
 	chanReserve             = 600
 )
 
-var client lnrpc.LightningClient
+var client, ssClient lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
 var walletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
@@ -229,7 +229,7 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
 
 	maxAllowedDeposit, err := getMaxAllowedDeposit(in.NodeID)
 	if err != nil {
@@ -348,8 +348,8 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 	log.Printf("GetSwapPayment - paying node %#v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
 
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	utxos, err := subswapClient.UnspentAmount(clientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
+	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+	utxos, err := subswapClient.UnspentAmount(subswapClientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
 	}
 
-	fees, err := subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
+	fees, err := subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
 		Hash:       decodedPayReq.PaymentHash[:],
 		TargetConf: 12,
 	})
@@ -385,6 +385,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	// Get the current blockheight
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	chainInfo, err := client.GetInfo(clientCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		log.Printf("GetSwapPayment - GetInfo error: %v", err)
@@ -399,7 +400,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		}, nil
 	}
 
-	sendResponse, err := client.SendPaymentSync(clientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
+	sendResponse, err := ssClient.SendPaymentSync(subswapClientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
 	if err != nil || sendResponse.PaymentError != "" {
 		if sendResponse != nil && sendResponse.PaymentError != "" {
 			err = fmt.Errorf("Error in payment response: %v", sendResponse.PaymentError)
@@ -409,7 +410,7 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	// Redeem the transaction
-	redeem, err := subswapClient.SubSwapServiceRedeem(clientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
+	redeem, err := subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
 		Preimage:   sendResponse.PaymentPreimage,
 		TargetConf: 12,
 	})
@@ -613,11 +614,26 @@ func main() {
 	}
 	defer conn.Close()
 	client = lnrpc.NewLightningClient(conn)
-	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(conn)
 	walletKitClient = walletrpc.NewWalletKitClient(conn)
 	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
-	go subscribeTransactions()
-	go handlePastTransactions()
+
+	// Address of an LND instance
+	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(creds))
+	if err != nil {
+		log.Fatalf("Failed to connect to LND gRPC: %v", err)
+	}
+	defer subswapConn.Close()
+	ssClient = lnrpc.NewLightningClient(subswapConn)
+	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(subswapConn)
+
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	go subscribeTransactions(ctx, client)
+	go handlePastTransactions(ctx, client)
+
+	ssCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+	go subscribeTransactions(ssCtx, ssClient)
+	go handlePastTransactions(ssCtx, ssClient)
+
 	startFeeEstimates()
 
 	err = redisConnect()
