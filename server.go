@@ -367,7 +367,8 @@ func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
 	}
 	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
-	if utxos.Amount < 3*fees.Amount {
+	if 2*utxos.Amount < 3*fees.Amount {
+		log.Println("GetSwapPayment - utxo amount less than 1.5 fees. Cannot proceed")
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
 			SwapError:          breez.GetSwapPaymentReply_TX_TOO_SMALL,
