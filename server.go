@@ -617,8 +617,13 @@ func main() {
 	walletKitClient = walletrpc.NewWalletKitClient(conn)
 	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
 
+	ssCp := x509.NewCertPool()
+	if !ssCp.AppendCertsFromPEM([]byte(strings.Replace(os.Getenv("SUBSWAPPER_LND_CERT"), "\\n", "\n", -1))) {
+		log.Fatalf("credentials: failed to append certificates")
+	}
+	ssCreds := credentials.NewClientTLSFromCert(ssCp, "")
 	// Address of an LND instance
-	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(creds))
+	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(ssCreds))
 	if err != nil {
 		log.Fatalf("Failed to connect to LND gRPC: %v", err)
 	}
