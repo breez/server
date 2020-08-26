@@ -114,6 +114,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 				FeeRate:         ci.FeeRate,
 				TimeLockDelta:   ci.TimeLockDelta,
 				MinHtlcMsat:     ci.MinHtlcMsat,
+				LspPubkey:       ci.LspPubkey,
 			}
 			r.Lsps[id] = li
 		}
