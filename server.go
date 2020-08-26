@@ -635,10 +635,12 @@ func main() {
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	go subscribeTransactions(ctx, client)
 	go handlePastTransactions(ctx, client)
+	go subscribeChannelAcceptor(ctx, client, os.Getenv("LND_CHANNEL_ACCEPTOR"))
 
 	ssCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
 	go subscribeTransactions(ssCtx, ssClient)
 	go handlePastTransactions(ssCtx, ssClient)
+	go subscribeChannelAcceptor(ctx, client, os.Getenv("SUBSWAPPER_LND_CHANNEL_ACCEPTOR"))
 
 	startFeeEstimates()
 
