@@ -40,4 +40,4 @@ require (
 	google.golang.org/grpc v1.31.0
 )
 
-replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.0.0-20200101072538-ad946ae712fe
+replace github.com/lightningnetwork/lnd => github.com/breez/lnd node-close-channel-fix
