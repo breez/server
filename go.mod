@@ -11,7 +11,7 @@ require (
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
 	github.com/aws/aws-sdk-go v1.23.21
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
-	github.com/breez/lspd v0.0.0-20200802114547-a5db418f43ea
+	github.com/breez/lspd v0.0.0-20200909144112-980d2b40e5b0
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
