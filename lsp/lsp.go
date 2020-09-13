@@ -116,6 +116,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 				MinHtlcMsat:     ci.MinHtlcMsat,
 				LspPubkey:       ci.LspPubkey,
 			}
+			log.Printf("Got lsp information: %v", li)
 			r.Lsps[id] = li
 		}
 	}
