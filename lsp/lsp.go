@@ -105,16 +105,17 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
 		} else {
 			li := &breez.LSPInformation{
-				Name:            ci.Name,
-				Pubkey:          ci.Pubkey,
-				Host:            ci.Host,
-				ChannelCapacity: ci.ChannelCapacity,
-				TargetConf:      ci.TargetConf,
-				BaseFeeMsat:     ci.BaseFeeMsat,
-				FeeRate:         ci.FeeRate,
-				TimeLockDelta:   ci.TimeLockDelta,
-				MinHtlcMsat:     ci.MinHtlcMsat,
-				LspPubkey:       ci.LspPubkey,
+				Name:                ci.Name,
+				Pubkey:              ci.Pubkey,
+				Host:                ci.Host,
+				ChannelCapacity:     ci.ChannelCapacity,
+				TargetConf:          ci.TargetConf,
+				BaseFeeMsat:         ci.BaseFeeMsat,
+				FeeRate:             ci.FeeRate,
+				TimeLockDelta:       ci.TimeLockDelta,
+				MinHtlcMsat:         ci.MinHtlcMsat,
+				ChannelFeePermyriad: ci.ChannelFeePermyriad,
+				LspPubkey:           ci.LspPubkey,
 			}
 			r.Lsps[id] = li
 		}
