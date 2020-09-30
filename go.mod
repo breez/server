@@ -9,7 +9,7 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.2 // indirect
 	firebase.google.com/go v3.7.0+incompatible
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
-	github.com/aws/aws-sdk-go v1.23.21
+	github.com/aws/aws-sdk-go v1.30.20
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
 	github.com/breez/lspd v0.0.0-20200909144112-980d2b40e5b0
 	github.com/btcsuite/btcd v0.20.1-beta
@@ -24,13 +24,13 @@ require (
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
-	github.com/jackc/pgtype v1.1.0
-	github.com/jackc/pgx/v4 v4.2.0
+	github.com/jackc/pgtype v1.4.2
+	github.com/jackc/pgx/v4 v4.8.1
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
-	github.com/lightningnetwork/lnd v0.8.0-beta-rc3.0.20191221022352-72a49d486ae4
+	github.com/lightningnetwork/lnd v0.10.0-beta
 	github.com/mojocn/base64Captcha v0.0.0-20190801020520-752b1cd608b2
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	go.starlark.net v0.0.0-20200821142938-949cc6f4b097
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
