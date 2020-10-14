@@ -26,16 +26,15 @@ import (
 	"github.com/breez/server/captcha"
 	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
+	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcutil"
-	"github.com/gomodule/redigo/redis"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
-	"github.com/lightningnetwork/lnd/zpay32"
 
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
@@ -49,11 +48,9 @@ import (
 )
 
 const (
-	imageDimensionLength    = 200
-	channelAmount           = 1000000
-	depositBalanceThreshold = 900_000
-	minRemoveFund           = 50000
-	chanReserve             = 600
+	imageDimensionLength = 200
+	channelAmount        = 1000000
+	minRemoveFund        = 50000
 )
 
 var client, ssClient lnrpc.LightningClient
@@ -62,6 +59,8 @@ var walletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
 var network *chaincfg.Params
 var openChannelReqGroup singleflight.Group
+
+var swapperServer *swapper.Server
 
 // server is used to implement breez.InvoicerServer and breez.PosServer
 type server struct{}
@@ -229,199 +228,15 @@ func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) 
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
-
-	maxAllowedDeposit, err := getMaxAllowedDeposit(in.NodeID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
-	}
-
-	if maxAllowedDeposit == 0 {
-		p := message.NewPrinter(message.MatchLanguage("en"))
-		satFormatted := strings.Replace(p.Sprintf("%d", depositBalanceThreshold), ",", " ", 1)
-		btcFormatted := strconv.FormatFloat(float64(depositBalanceThreshold)/float64(100000000), 'f', -1, 64)
-		return &breez.AddFundInitReply{
-			MaxAllowedDeposit: maxAllowedDeposit,
-			ErrorMessage: fmt.Sprintf("Adding funds is enabled when the balance is under %v BTC (%v Sat).",
-				btcFormatted, satFormatted),
-			RequiredReserve: chanReserve,
-		}, nil
-	}
-
-	subSwapServiceInitResponse, err := subswapClient.SubSwapServiceInit(clientCtx, &submarineswaprpc.SubSwapServiceInitRequest{
-		Hash:   in.Hash,
-		Pubkey: in.Pubkey,
-	})
-	if err != nil {
-		log.Printf("subswapClient.SubSwapServiceInit (hash:%v, pubkey:%v) error: %v", in.Hash, in.Pubkey, err)
-		return nil, err
-	}
-
-	address := subSwapServiceInitResponse.Address
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-	_, err = redisConn.Do("HMSET", "input-address:"+address, "hash", in.Hash)
-	if err != nil {
-		return nil, err
-	}
-	_, err = redisConn.Do("SADD", "input-address-notification:"+address, in.NotificationToken)
-	if err != nil {
-		return nil, err
-	}
-	_, err = redisConn.Do("SADD", "fund-addresses", address)
-	if err != nil {
-		return nil, err
-	}
-	return &breez.AddFundInitReply{
-		Address:           address,
-		MaxAllowedDeposit: maxAllowedDeposit,
-		Pubkey:            subSwapServiceInitResponse.Pubkey,
-		LockHeight:        subSwapServiceInitResponse.LockHeight,
-		RequiredReserve:   chanReserve,
-	}, nil
+	return swapperServer.AddFundInitLegacy(ctx, in)
 }
 
 func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusRequest) (*breez.AddFundStatusReply, error) {
-	statuses := make(map[string]*breez.AddFundStatusReply_AddressStatus)
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-	for _, address := range in.Addresses {
-		m, err := redis.StringMap(redisConn.Do("HGETALL", "input-address:"+address))
-		if err != nil {
-			log.Println("AddFundStatus error:", err)
-			continue
-		}
-		s := &breez.AddFundStatusReply_AddressStatus{}
-		if tx, confirmed := m["tx:TxHash"]; confirmed {
-			s.BlockHash = m["tx:BlockHash"]
-			s.Confirmed = true
-			s.Tx = tx
-			if amt, err := strconv.ParseInt(m["tx:Amount"], 10, 64); err == nil {
-				s.Amount = amt
-			}
-		} else {
-			if tx, unconfirmed := m["utx:TxHash"]; unconfirmed {
-				s.Confirmed = false
-				s.Tx = tx
-				if amt, err := strconv.ParseInt(m["utx:Amount"], 10, 64); err == nil {
-					s.Amount = amt
-				}
-			}
-		}
-		_, err = redisConn.Do("SADD", "input-address-notification:"+address, in.NotificationToken)
-		if err != nil {
-			log.Println("AddFundStatus error adding token:", "input-address-notification:"+address, in.NotificationToken, err)
-		}
-		if s.Tx != "" {
-			statuses[address] = s
-		}
-	}
-
-	return &breez.AddFundStatusReply{Statuses: statuses}, nil
+	return swapperServer.AddFundStatus(ctx, in)
 }
 
 func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {
-	// Decode the the client's payment request
-	decodedPayReq, err := zpay32.Decode(in.PaymentRequest, network)
-	if err != nil {
-		log.Printf("GetSwapPayment - Error in zpay32.Decode: %v", err)
-		return nil, status.Errorf(codes.Internal, "payment request is not valid")
-	}
-
-	decodedAmt := int64(0)
-	if decodedPayReq.MilliSat != nil {
-		decodedAmt = int64(decodedPayReq.MilliSat.ToSatoshis())
-	}
-
-	maxAllowedDeposit, err := getMaxAllowedDeposit(hex.EncodeToString(decodedPayReq.Destination.SerializeCompressed()))
-	if err != nil {
-		log.Printf("GetSwapPayment - getMaxAllowedDeposit error: %v", err)
-		return nil, status.Errorf(codes.Internal, "failed to calculate max allowed deposit amount")
-	}
-	if decodedAmt > maxAllowedDeposit {
-		log.Printf("GetSwapPayment - decodedAmt > maxAllowedDeposit: %v > %v", decodedAmt, maxAllowedDeposit)
-		return &breez.GetSwapPaymentReply{
-			FundsExceededLimit: true,
-			SwapError:          breez.GetSwapPaymentReply_FUNDS_EXCEED_LIMIT,
-			PaymentError:       fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit),
-		}, nil
-	}
-	log.Printf("GetSwapPayment - paying node %#v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
-
-	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
-	utxos, err := subswapClient.UnspentAmount(subswapClientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(utxos.Utxos) == 0 {
-		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
-	}
-
-	fees, err := subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
-		Hash:       decodedPayReq.PaymentHash[:],
-		TargetConf: 12,
-	})
-	if err != nil {
-		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
-		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
-	}
-	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
-	if 2*utxos.Amount < 3*fees.Amount {
-		log.Println("GetSwapPayment - utxo amount less than 1.5 fees. Cannot proceed")
-		return &breez.GetSwapPaymentReply{
-			FundsExceededLimit: true,
-			SwapError:          breez.GetSwapPaymentReply_TX_TOO_SMALL,
-			PaymentError:       "total UTXO not sufficient to create the redeem transaction",
-		}, nil
-	}
-
-	// Determine if the amount in payment request is the same as in the address UTXOs
-	if utxos.Amount != decodedAmt {
-		return &breez.GetSwapPaymentReply{
-			FundsExceededLimit: true,
-			SwapError:          breez.GetSwapPaymentReply_INVOICE_AMOUNT_MISMATCH,
-			PaymentError:       "total UTXO amount not equal to the amount in client's payment request",
-		}, nil
-	}
-
-	// Get the current blockheight
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	chainInfo, err := client.GetInfo(clientCtx, &lnrpc.GetInfoRequest{})
-	if err != nil {
-		log.Printf("GetSwapPayment - GetInfo error: %v", err)
-		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
-	}
-
-	if 4*(int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight) > 3*utxos.LockHeight {
-		return &breez.GetSwapPaymentReply{
-			FundsExceededLimit: true,
-			SwapError:          breez.GetSwapPaymentReply_SWAP_EXPIRED,
-			PaymentError:       "client transaction older than redeem block treshold",
-		}, nil
-	}
-
-	sendResponse, err := ssClient.SendPaymentSync(subswapClientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
-	if err != nil || sendResponse.PaymentError != "" {
-		if sendResponse != nil && sendResponse.PaymentError != "" {
-			err = fmt.Errorf("Error in payment response: %v", sendResponse.PaymentError)
-		}
-		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
-		return nil, err
-	}
-
-	// Redeem the transaction
-	redeem, err := subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
-		Preimage:   sendResponse.PaymentPreimage,
-		TargetConf: 12,
-	})
-	if err != nil {
-		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
-		return nil, err
-	}
-
-	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
-	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
+	return swapperServer.GetSwapPaymentLegacy(ctx, in)
 }
 
 func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
@@ -517,25 +332,6 @@ func (s *server) RegisterPeriodicSync(ctx context.Context, in *breez.RegisterPer
 		return nil, err
 	}
 	return &breez.RegisterPeriodicSyncResponse{}, nil
-}
-
-//Calculate the max allowed deposit for a node
-func getMaxAllowedDeposit(nodeID string) (int64, error) {
-	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
-	maxAllowedToDeposit := int64(depositBalanceThreshold)
-	nodeChannels, err := getNodeChannels(nodeID)
-	if err != nil {
-		return 0, err
-	}
-	var nodeLocalBalance int64
-	for _, ch := range nodeChannels {
-		nodeLocalBalance += ch.RemoteBalance
-	}
-	maxAllowedToDeposit = depositBalanceThreshold - nodeLocalBalance
-	if maxAllowedToDeposit < 0 {
-		maxAllowedToDeposit = 0
-	}
-	return maxAllowedToDeposit, nil
 }
 
 func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
@@ -692,6 +488,14 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/GetSwapPayment", 1000, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 10, 100, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/RegisterTransactionConfirmation", 100, 10000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/AddFundInit", 20, 200, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/AddFundInit", 1000, 100000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/AddFundStatus", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/AddFundStatus", 1000, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/GetSwapPayment", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/GetSwapPayment", 1000, 10000, 86400),
+
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1000, 10000, 86400),
@@ -704,6 +508,9 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 1000, 1000, 86400),
 		),
 	)
+
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient)
+	breez.RegisterSwapperServer(s, swapperServer)
 
 	breez.RegisterChannelOpenerServer(s, &lsp.Server{
 		EmailNotifier: sendOpenChannelNotification,
