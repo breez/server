@@ -23,7 +23,7 @@ import (
 
 const (
 	depositBalanceThresholdLegacy = 900_000
-	depositBalanceThreshold       = 3_500_000
+	depositBalanceThreshold       = 4_000_000
 	minRemoveFund                 = 50000
 	chanReserve                   = 600
 )
