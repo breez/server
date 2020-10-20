@@ -233,7 +233,7 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 				if err != nil {
 					return err
 				}
-				go notifyClientTransaction(tx, i, "Confirmed transaction", "Breez", "Funds added to Breez are now confirmed. Please open the app to complete your setup.", true)
+				go notifyClientTransaction(tx, i, "Confirmed transaction", "Breez", "Received funds are now confirmed. Please open the app to complete your transaction.", true)
 				break // There is only one address concerning us per transaction
 			} else {
 				redisConn := redisPool.Get()
