@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -128,23 +129,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 
 // OpenLSPChannel call OpenChannel of the lspd given by it's id
 func (s *Server) OpenLSPChannel(ctx context.Context, in *breez.OpenLSPChannelRequest) (*breez.OpenLSPChannelReply, error) {
-	lsp, ok := lspConf.LspdList[in.LspId]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "Not found")
-	}
-	lspdClient, ok := lspdClients[in.LspId]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "Not found")
-	}
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	r, err := lspdClient.OpenChannel(clientCtx, &lspdrpc.OpenChannelRequest{Pubkey: in.Pubkey})
-	if err != nil {
-		return nil, err // Log and returns another error.
-	}
-	if s.EmailNotifier != nil {
-		_ = s.EmailNotifier(in.Pubkey, r.TxHash, r.OutputIndex)
-	}
-	return &breez.OpenLSPChannelReply{}, nil
+	return nil, fmt.Errorf("disabled")
 }
 
 // RegisterPayment sends information concerning a payment used by the LSP to open a channel

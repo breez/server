@@ -28,7 +28,6 @@ import (
 	"github.com/breez/server/ratelimit"
 	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcutil"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -182,49 +181,7 @@ func (s *server) UpdateChannelPolicy(ctx context.Context, in *breez.UpdateChanne
 }
 
 func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
-
-	r, err, _ := openChannelReqGroup.Do(in.PubKey, func() (interface{}, error) {
-		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-		nodeChannels, err := getNodeChannels(in.PubKey)
-		if err != nil {
-			return nil, err
-		}
-		pendingChannels, err := getPendingNodeChannels(in.PubKey)
-		if err != nil {
-			return nil, err
-		}
-		if len(nodeChannels) == 0 && len(pendingChannels) == 0 {
-			response, err := client.OpenChannelSync(clientCtx, &lnrpc.OpenChannelRequest{
-				LocalFundingAmount: channelAmount,
-				NodePubkeyString:   in.PubKey,
-				PushSat:            0,
-				TargetConf:         1,
-				MinHtlcMsat:        600,
-				Private:            true,
-			})
-			log.Printf("Response from OpenChannel: %#v (TX: %v)", response, hex.EncodeToString(response.GetFundingTxidBytes()))
-
-			if err != nil {
-				log.Printf("Error in OpenChannel: %v", err)
-				return nil, err
-			}
-			var txidStr string
-			txid, err := chainhash.NewHash(response.GetFundingTxidBytes())
-
-			// don't fail the request in case we can't format the channel id from
-			// some reason...
-			if txid != nil {
-				txidStr = txid.String()
-			}
-			_ = sendOpenChannelNotification(in.PubKey, txidStr, response.GetOutputIndex())
-		}
-		return &breez.OpenChannelReply{}, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	return r.(*breez.OpenChannelReply), err
+	return nil, fmt.Errorf("disabled")
 }
 
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
