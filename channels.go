@@ -12,6 +12,7 @@ import (
 )
 
 func isAccepted(acceptScript string, nodePubKey []byte, amt uint64) bool {
+	log.Printf("isAccepted nid: %x, amt: %v, script: %s", nodePubKey, amt, acceptScript)
 	if len(acceptScript) == 0 {
 		return false
 	}
@@ -66,6 +67,7 @@ func subscribeChannelAcceptorOnce(ctx context.Context, c lnrpc.LightningClient, 
 			return err
 		}
 		accept := isAccepted(acceptScript, r.NodePubkey, r.FundingAmt)
+		log.Printf("isAccepted returned: %v", accept)
 		err = channelAcceptorClient.Send(&lnrpc.ChannelAcceptResponse{
 			PendingChanId: r.PendingChanId,
 			Accept:        accept,
