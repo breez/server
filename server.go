@@ -393,7 +393,7 @@ func main() {
 	ssCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
 	go subscribeTransactions(ssCtx, ssClient)
 	go handlePastTransactions(ssCtx, ssClient)
-	go subscribeChannelAcceptor(ctx, client, os.Getenv("SUBSWAPPER_LND_CHANNEL_ACCEPTOR"))
+	go subscribeChannelAcceptor(ssCtx, ssClient, os.Getenv("SUBSWAPPER_LND_CHANNEL_ACCEPTOR"))
 
 	startFeeEstimates()
 
