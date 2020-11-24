@@ -81,6 +81,12 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 		return nil, err
 	}
 
+	fees, err := s.subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
+		Hash:       in.Hash,
+		TargetConf: 12,
+	})
+	minAllowedDeposit := 3 * fees.Amount / 2
+
 	address := subSwapServiceInitResponse.Address
 	redisConn := s.redisPool.Get()
 	defer redisConn.Close()
@@ -102,6 +108,7 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 		Pubkey:            subSwapServiceInitResponse.Pubkey,
 		LockHeight:        subSwapServiceInitResponse.LockHeight,
 		RequiredReserve:   chanReserve,
+		MinAllowedDeposit: minAllowedDeposit,
 	}, nil
 }
 
@@ -191,7 +198,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 
 	fees, err := s.subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
 		Hash:       decodedPayReq.PaymentHash[:],
-		TargetConf: 12,
+		TargetConf: 30,
 	})
 	if err != nil {
 		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
@@ -244,7 +251,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	// Redeem the transaction
 	redeem, err := s.subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
 		Preimage:   sendResponse.PaymentPreimage,
-		TargetConf: 12,
+		TargetConf: 30,
 	})
 	if err != nil {
 		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
