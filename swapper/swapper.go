@@ -14,6 +14,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
+	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"golang.org/x/text/message"
 	"google.golang.org/grpc/codes"
@@ -30,19 +31,21 @@ const (
 
 // Server implements lsp grpc functions
 type Server struct {
-	network       *chaincfg.Params
-	redisPool     *redis.Pool
-	client        lnrpc.LightningClient
-	ssClient      lnrpc.LightningClient
-	subswapClient submarineswaprpc.SubmarineSwapperClient
+	network         *chaincfg.Params
+	redisPool       *redis.Pool
+	client          lnrpc.LightningClient
+	ssClient        lnrpc.LightningClient
+	subswapClient   submarineswaprpc.SubmarineSwapperClient
+	walletKitClient walletrpc.WalletKitClient
 }
 
 func NewServer(
 	network *chaincfg.Params,
 	redisPool *redis.Pool,
 	client, ssClient lnrpc.LightningClient,
-	subswapClient submarineswaprpc.SubmarineSwapperClient) *Server {
-	return &Server{network, redisPool, client, ssClient, subswapClient}
+	subswapClient submarineswaprpc.SubmarineSwapperClient,
+	walletKitClient walletrpc.WalletKitClient) *Server {
+	return &Server{network, redisPool, client, ssClient, subswapClient, walletKitClient}
 }
 
 func (s *Server) AddFundInitLegacy(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
@@ -81,11 +84,15 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 		return nil, err
 	}
 
-	fees, err := s.subswapClient.SubSwapServiceRedeemFees(clientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
-		Hash:       in.Hash,
-		TargetConf: 12,
-	})
-	minAllowedDeposit := 3 * fees.Amount / 2
+	var minAllowedDeposit int64
+	ct := 12
+	fees, err := s.walletKitClient.EstimateFee(clientCtx, &walletrpc.EstimateFeeRequest{ConfTarget: int32(ct)})
+	if err != nil {
+		log.Printf("walletKitClient.EstimateFee(%v) error: %v", ct, err)
+	} else {
+		log.Printf("walletKitClient.EstimateFee(%v): %v", ct, fees.SatPerKw)
+		minAllowedDeposit = 3 * fees.SatPerKw * 300 / 2 / 1000
+	}
 
 	address := subSwapServiceInitResponse.Address
 	redisConn := s.redisPool.Get()

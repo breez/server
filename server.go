@@ -54,7 +54,7 @@ const (
 
 var client, ssClient lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
-var walletKitClient walletrpc.WalletKitClient
+var walletKitClient, ssWalletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
 var network *chaincfg.Params
 var openChannelReqGroup singleflight.Group
@@ -384,6 +384,7 @@ func main() {
 	defer subswapConn.Close()
 	ssClient = lnrpc.NewLightningClient(subswapConn)
 	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(subswapConn)
+	ssWalletKitClient = walletrpc.NewWalletKitClient(subswapConn)
 
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	go subscribeTransactions(ctx, client)
@@ -466,7 +467,7 @@ func main() {
 		),
 	)
 
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient)
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	breez.RegisterChannelOpenerServer(s, &lsp.Server{
