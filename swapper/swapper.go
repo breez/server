@@ -91,7 +91,8 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 		log.Printf("walletKitClient.EstimateFee(%v) error: %v", ct, err)
 	} else {
 		log.Printf("walletKitClient.EstimateFee(%v): %v", ct, fees.SatPerKw)
-		minAllowedDeposit = 3 * fees.SatPerKw * 300 / 2 / 1000
+		// Assume a weight of 1K for the transaction.
+		minAllowedDeposit = fees.SatPerKw * 3 / 2
 	}
 
 	address := subSwapServiceInitResponse.Address
