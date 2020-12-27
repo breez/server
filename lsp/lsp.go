@@ -149,3 +149,21 @@ func (s *Server) RegisterPayment(ctx context.Context, in *breez.RegisterPaymentR
 	}
 	return &breez.RegisterPaymentReply{}, nil
 }
+
+// CheckChannels call lspd function CheckChannels
+func (s *Server) CheckChannels(ctx context.Context, in *breez.CheckChannelsRequest) (*breez.CheckChannelsReply, error) {
+	lsp, ok := lspConf.LspdList[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspdClient, ok := lspdClients[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
+	reply, err := lspdClient.CheckChannels(clientCtx, &lspdrpc.Encrypted{Data: in.Blob})
+	if err != nil {
+		return nil, err
+	}
+	return &breez.CheckChannelsReply{Blob: reply.Data}, nil
+}

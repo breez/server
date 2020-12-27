@@ -3,20 +3,23 @@ module github.com/breez/server
 go 1.14
 
 require (
-	cloud.google.com/go v0.61.0
+	cloud.google.com/go v0.61.0 // indirect
 	cloud.google.com/go/firestore v1.3.0 // indirect
 	cloud.google.com/go/storage v1.10.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.2 // indirect
 	firebase.google.com/go v3.7.0+incompatible
-	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d
+	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d // indirect
 	github.com/aws/aws-sdk-go v1.30.20
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
-	github.com/breez/lspd v0.0.0-20200909144112-980d2b40e5b0
-	github.com/btcsuite/btcd v0.20.1-beta
-	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
+	github.com/breez/lspd v0.0.0-20201224160157-11dc17ae2da4
+	github.com/btcsuite/btcd v0.20.1-beta.0.20200730232343-1db1b6f8217f
+	github.com/btcsuite/btcutil v1.0.2
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
 	github.com/codahale/chacha20 v0.0.0-20151107025005-ec07b4f69a3f // indirect
 	github.com/codahale/chacha20poly1305 v0.0.0-20151127064032-f8a5c4830182 // indirect
+	github.com/coreos/etcd v3.3.25+incompatible // indirect
+	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/golang/protobuf v1.4.2
 	github.com/gomodule/redigo v2.0.1-0.20180627144507-2cd21d9966bf+incompatible
 	github.com/google/martian v2.1.0+incompatible // indirect
@@ -28,16 +31,17 @@ require (
 	github.com/jackc/pgx/v4 v4.8.1
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
-	github.com/lightningnetwork/lnd v0.10.0-beta
+	github.com/lightningnetwork/lnd v0.11.0-beta
 	github.com/mojocn/base64Captcha v0.0.0-20190801020520-752b1cd608b2
 	github.com/pkg/errors v0.9.1
 	go.starlark.net v0.0.0-20200821142938-949cc6f4b097
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.3
 	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.31.0
+	google.golang.org/grpc/examples v0.0.0-20201226181154-53788aa5dcb4 // indirect
 )
 
-replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.0.0-20200101072538-ad946ae712fe
+replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.11.0-beta.rc4.0.20201203092954-c9339066c264
