@@ -117,3 +117,18 @@ func breezAppVersion() (pgx.Rows, error) {
 		`SELECT version FROM breez_app_versions`,
 	)
 }
+
+func deviceNode(nodeID []byte, deviceID string) error {
+	commandTag, err := pgxPool.Exec(context.Background(),
+		`INSERT INTO deviceid_nodeid
+		  (nodeid, deviceid, first_registration)
+		  VALUES ($1, $2, NOW())
+		  ON CONFLICT DO UPDATE SET deviceid=$2`,
+		nodeID, deviceID)
+	if err != nil {
+		log.Printf("pgxPool.Exec(): %v", err)
+		return fmt.Errorf("pgxPool.Exec(): %w", err)
+	}
+	log.Printf("pgxPool.Exec('INSERT INTO deviceid_nodeid(%x, %v)'; RowsAffected(): %v'", nodeID, deviceID, commandTag.RowsAffected())
+	return nil
+}

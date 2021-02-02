@@ -66,6 +66,18 @@ type server struct{}
 
 // RegisterDevice implements breez.InvoicerServer
 func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) (*breez.RegisterReply, error) {
+	if in.LightningID != "" {
+		nodeID, err := hex.DecodeString(in.LightningID)
+		if err != nil {
+			log.Printf("hex.DecodeString(%v) error: %v", in.LightningID, err)
+			return nil, fmt.Errorf("hex.DecodeString(%v) error: %w", in.LightningID, err)
+		}
+		err = deviceNode(nodeID, in.DeviceID)
+		if err != nil {
+			log.Printf("deviceNode(%x, %v) error: %v", nodeID, in.DeviceID, err)
+			return nil, fmt.Errorf("deviceNode(%x, %v) error: %w", nodeID, in.DeviceID, err)
+		}
+	}
 	return &breez.RegisterReply{BreezID: in.DeviceID}, nil
 }
 
