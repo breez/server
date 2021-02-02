@@ -35,9 +35,13 @@ func main() {
 	if len(os.Args) > 1 {
 		id = os.Args[1]
 	}
+	nodeID := ""
+	if len(os.Args) > 2 {
+		nodeID = os.Args[2]
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.RegisterDevice(ctx, &breez.RegisterRequest{DeviceID: id})
+	r, err := c.RegisterDevice(ctx, &breez.RegisterRequest{DeviceID: id, LightningID: nodeID})
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
