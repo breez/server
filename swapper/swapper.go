@@ -302,3 +302,12 @@ func (s *Server) getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 	}
 	return nodeChannels, nil
 }
+
+func (s *Server) GetReverseRoutingNode(ctx context.Context, in *breez.GetReverseRoutingNodeRequest) (*breez.GetReverseRoutingNodeReply, error) {
+	nodeID, err := hex.DecodeString(os.Getenv("REVERSE_SWAP_ROUTING_NODE"))
+	if err != nil {
+		log.Printf("GetReverseRoutingNode error in hex.DecodeString(%v): %v", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
+		return nil, fmt.Errorf("GetReverseRoutingNode error in hex.DecodeString(%v): %w", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
+	}
+	return &breez.GetReverseRoutingNodeReply{NodeId: nodeID}, nil
+}
