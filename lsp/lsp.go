@@ -117,6 +117,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 				MinHtlcMsat:         ci.MinHtlcMsat,
 				ChannelFeePermyriad: ci.ChannelFeePermyriad,
 				LspPubkey:           ci.LspPubkey,
+				MaxInactiveDuration: ci.MaxInactiveDuration,
 			}
 			r.Lsps[id] = li
 		}

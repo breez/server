@@ -11,15 +11,12 @@ require (
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d // indirect
 	github.com/aws/aws-sdk-go v1.30.20
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
-	github.com/breez/lspd v0.0.0-20201224160157-11dc17ae2da4
+	github.com/breez/lspd v0.0.0-20210221151902-d532a78143d0
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200730232343-1db1b6f8217f
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
 	github.com/codahale/chacha20 v0.0.0-20151107025005-ec07b4f69a3f // indirect
 	github.com/codahale/chacha20poly1305 v0.0.0-20151127064032-f8a5c4830182 // indirect
-	github.com/coreos/etcd v3.3.25+incompatible // indirect
-	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/golang/protobuf v1.4.2
 	github.com/gomodule/redigo v2.0.1-0.20180627144507-2cd21d9966bf+incompatible
 	github.com/google/martian v2.1.0+incompatible // indirect
@@ -40,8 +37,7 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.3
 	google.golang.org/api v0.29.0
-	google.golang.org/grpc v1.31.0
-	google.golang.org/grpc/examples v0.0.0-20201226181154-53788aa5dcb4 // indirect
+	google.golang.org/grpc v1.30.0
 )
 
-replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.11.0-beta.rc4.0.20201203092954-c9339066c264
+replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.11.0-beta.rc4.0.20210216134321-d7f38556e08d
