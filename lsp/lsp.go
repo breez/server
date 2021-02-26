@@ -105,6 +105,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 		if err != nil {
 			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
 		} else {
+			log.Printf("ChannelInformation: %#v", ci)
 			li := &breez.LSPInformation{
 				Name:                ci.Name,
 				Pubkey:              ci.Pubkey,
