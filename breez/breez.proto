@@ -33,6 +33,10 @@ service ChannelOpener {
   rpc CheckChannels(CheckChannelsRequest) returns (CheckChannelsReply) {}
 }
 
+service PublicChannelOpener {
+  rpc OpenPublicChannel(OpenPublicChannelRequest) returns (OpenPublicChannelReply) {}
+}
+
 service FundManager {
   rpc OpenChannel (OpenChannelRequest) returns (OpenChannelReply) {}
   rpc UpdateChannelPolicy (UpdateChannelPolicyRequest) returns (UpdateChannelPolicyReply) {}
@@ -139,6 +143,12 @@ message OpenChannelRequest {
 }
 
 message OpenChannelReply {}
+
+message OpenPublicChannelRequest {
+  string pubkey = 1;
+}
+
+message OpenPublicChannelReply {}
 
 message Captcha {
   string id = 1;

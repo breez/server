@@ -427,6 +427,7 @@ func main() {
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			auth.UnaryAuth("/breez.ChannelOpener/", os.Getenv("LSP_TOKEN")),
+			auth.UnaryMultiAuth("/breez/PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			captcha.UnaryCaptchaAuth("/breez.ChannelOpener/OpenLSPChannel", os.Getenv("CAPTCHA_CONFIG")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
@@ -478,15 +479,20 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 1000, 1000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 1000, 1000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 10, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 1000, 1000, 86400),
 		),
 	)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient)
 	breez.RegisterSwapperServer(s, swapperServer)
 
-	breez.RegisterChannelOpenerServer(s, &lsp.Server{
+	lspServer := &lsp.Server{
 		EmailNotifier: sendOpenChannelNotification,
-	})
+	}
+	breez.RegisterChannelOpenerServer(s, lspServer)
+	breez.RegisterPublicChannelOpenerServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})
 	breez.RegisterInformationServer(s, &server{})

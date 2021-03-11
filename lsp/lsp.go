@@ -11,6 +11,7 @@ import (
 	"os"
 
 	lspdrpc "github.com/breez/lspd/rpc"
+	"github.com/breez/server/auth"
 	"github.com/breez/server/breez"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -22,7 +23,7 @@ import (
 
 // Server implements lsp grpc functions
 type Server struct {
-	EmailNotifier func(nid, txid string, index uint32) error
+	EmailNotifier func(provider, nid, txid string, index uint32) error
 }
 
 // lspdLSP represents the infos about a LSP running lspd
@@ -132,6 +133,39 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 // OpenLSPChannel call OpenChannel of the lspd given by it's id
 func (s *Server) OpenLSPChannel(ctx context.Context, in *breez.OpenLSPChannelRequest) (*breez.OpenLSPChannelReply, error) {
 	return nil, fmt.Errorf("disabled")
+}
+
+// OpenPublicChannel call OpenChannel
+func (s *Server) OpenPublicChannel(ctx context.Context, in *breez.OpenPublicChannelRequest) (*breez.OpenPublicChannelReply, error) {
+	provider := auth.GetProvider(ctx)
+	if provider == nil {
+		log.Printf("OpenPublicChannel: no provider found")
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspID := os.Getenv("PUBLIC_CHANNEL_LSP_" + *provider)
+	if lspID == "" {
+		log.Printf("OpenPublicChannel: no lspid found for the provider: %v", *provider)
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lsp, ok := lspConf.LspdList[lspID]
+	if !ok {
+		log.Printf("OpenPublicChannel: no lsp config found for the lspID: %v", lspID)
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspdClient, ok := lspdClients[lspID]
+	if !ok {
+		log.Printf("OpenPublicChannel: no lspdClient config found for the lspID: %v", lspID)
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
+	r, err := lspdClient.OpenChannel(clientCtx, &lspdrpc.OpenChannelRequest{Pubkey: in.Pubkey})
+	if err != nil {
+		return nil, err // Log and returns another error.
+	}
+	if s.EmailNotifier != nil {
+		_ = s.EmailNotifier(*provider, in.Pubkey, r.TxHash, r.OutputIndex)
+	}
+	return &breez.OpenPublicChannelReply{}, nil
 }
 
 // RegisterPayment sends information concerning a payment used by the LSP to open a channel

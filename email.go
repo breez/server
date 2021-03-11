@@ -116,13 +116,14 @@ func sendCardOrderNotification(in *breez.OrderRequest) error {
 	return nil
 }
 
-func sendOpenChannelNotification(nid, txid string, index uint32) error {
+func sendOpenChannelNotification(provider, nid, txid string, index uint32) error {
 
 	channelID := txid + ":" + strconv.FormatUint(uint64(index), 10)
 
 	var html bytes.Buffer
 
 	tpl := `
+	<div>Provider: {{ .Provider }}</div>
 	<div>NodeId: {{ .NodeID }}</div>
 	<div>Channel: {{ .ChannelID }}</div>
 	`
@@ -131,7 +132,7 @@ func sendOpenChannelNotification(nid, txid string, index uint32) error {
 		return err
 	}
 
-	if err := t.Execute(&html, map[string]string{"NodeID": nid, "ChannelID": channelID}); err != nil {
+	if err := t.Execute(&html, map[string]string{"Provider": provider, "NodeID": nid, "ChannelID": channelID}); err != nil {
 		return err
 	}
 
