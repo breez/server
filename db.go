@@ -132,3 +132,18 @@ func deviceNode(nodeID []byte, deviceID string) error {
 	log.Printf("pgxPool.Exec('INSERT INTO deviceid_nodeid(%x, %v)'; RowsAffected(): %v'", nodeID, deviceID, commandTag.RowsAffected())
 	return nil
 }
+
+func getDeviceToken(nodeID []byte) (string, error) {
+	var token string
+	err := pgxPool.QueryRow(context.Background(),
+		`SELECT deviceid
+		  FROM deviceid_nodeid
+		  WHERE nodeid=$1`, nodeID).Scan(&token)
+	if err == pgx.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}

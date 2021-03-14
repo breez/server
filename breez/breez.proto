@@ -68,6 +68,15 @@ service PushTxNotifier {
   rpc RegisterTxNotification(PushTxNotificationRequest) returns (PushTxNotificationResponse) {}
 }
 
+service InactiveNotifier {
+  rpc InactiveNotify(InactiveNotifyRequest) returns (InactiveNotifyResponse) {}
+}
+message InactiveNotifyRequest {
+  bytes pubkey = 1 [json_name = "pubkey"];
+  int32 days = 2 [json_name = "days"];
+}
+message InactiveNotifyResponse {}
+
 message RatesRequest {}
 message Rate {
   string coin = 1;

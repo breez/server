@@ -261,6 +261,21 @@ func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.Orde
 	return &breez.OrderReply{}, nil
 }
 
+// InactiveNotify send a notification to an inactive nodeid
+func (s *server) InactiveNotify(ctx context.Context, in *breez.InactiveNotifyRequest) (*breez.InactiveNotifyResponse, error) {
+	data := make(map[string]string)
+	token, err := getDeviceToken(in.Pubkey)
+	if err != nil {
+		return nil, err
+	}
+	body := fmt.Sprintf("You haven't made any payments with Breez for %v days, so your LSP might have to close your channels. Open Breez for more information.", in.Days)
+	err = notifyAlertMessage("Inactive Channels", body, data, token)
+	if err != nil {
+		return nil, err
+	}
+	return &breez.InactiveNotifyResponse{}, nil
+}
+
 //JoinCTPSession is used by both payer/payee to join a CTP session.
 func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
 	sessionID, expiry, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
@@ -428,6 +443,7 @@ func main() {
 		grpc_middleware.WithUnaryServerChain(
 			auth.UnaryAuth("/breez.ChannelOpener/", os.Getenv("LSP_TOKEN")),
 			auth.UnaryMultiAuth("/breez/PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
+			auth.UnaryAuth("/breez/InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			captcha.UnaryCaptchaAuth("/breez.ChannelOpener/OpenLSPChannel", os.Getenv("CAPTCHA_CONFIG")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
@@ -482,6 +498,9 @@ func main() {
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 1000, 1000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 1000, 86400),
 		),
 	)
 
@@ -501,6 +520,7 @@ func main() {
 	breez.RegisterCTPServer(s, &server{})
 	breez.RegisterSyncNotifierServer(s, &server{})
 	breez.RegisterPushTxNotifierServer(s, &server{})
+	breez.RegisterInactiveNotifierServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
