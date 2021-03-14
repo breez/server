@@ -268,6 +268,9 @@ func (s *server) InactiveNotify(ctx context.Context, in *breez.InactiveNotifyReq
 	if err != nil {
 		return nil, err
 	}
+	if token == "" {
+		return nil, fmt.Errorf("Unknown nodeID: %v", in.Pubkey)
+	}
 	body := fmt.Sprintf("You haven't made any payments with Breez for %v days, so your LSP might have to close your channels. Open Breez for more information.", in.Days)
 	err = notifyAlertMessage("Inactive Channels", body, data, token)
 	if err != nil {
