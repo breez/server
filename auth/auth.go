@@ -18,12 +18,12 @@ const providerCtxKey providerCtxKeyType = "provider"
 
 func GetProvider(ctx context.Context) *string {
 	provider, ok := ctx.Value(providerCtxKey).(*string)
-	if !ok {
+	if !ok || provider == nil {
 		log.Printf("GetProvider(): no provider found")
 		return nil
 	}
+	log.Printf("context provider string value: %#v", *provider)
 	return provider
-
 }
 
 func UnaryAuth(prefix, token string) grpc.UnaryServerInterceptor {

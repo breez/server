@@ -445,8 +445,8 @@ func main() {
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			auth.UnaryAuth("/breez.ChannelOpener/", os.Getenv("LSP_TOKEN")),
-			auth.UnaryMultiAuth("/breez/PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
-			auth.UnaryAuth("/breez/InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
+			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
+			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			captcha.UnaryCaptchaAuth("/breez.ChannelOpener/OpenLSPChannel", os.Getenv("CAPTCHA_CONFIG")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),

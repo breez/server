@@ -152,6 +152,7 @@ func (s *Server) OpenPublicChannel(ctx context.Context, in *breez.OpenPublicChan
 		log.Printf("OpenPublicChannel: no lsp config found for the lspID: %v", lspID)
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
+	log.Printf("Asking the lsp: %v to open a channel to: %v for the provider: %v", lspID, in.Pubkey, *provider)
 	lspdClient, ok := lspdClients[lspID]
 	if !ok {
 		log.Printf("OpenPublicChannel: no lspdClient config found for the lspID: %v", lspID)
