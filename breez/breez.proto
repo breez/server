@@ -24,6 +24,7 @@ service Information {
   rpc Ping (PingRequest) returns (PingReply) {}
   rpc Rates (RatesRequest) returns (RatesReply) {}
   rpc BreezAppVersions(BreezAppVersionsRequest) returns (BreezAppVersionsReply) {}
+  rpc ReceiverInfo(ReceiverInfoRequest) returns (ReceiverInfoReply) {}
 }
 
 service ChannelOpener {
@@ -76,6 +77,11 @@ message InactiveNotifyRequest {
   int32 days = 2 [json_name = "days"];
 }
 message InactiveNotifyResponse {}
+
+message ReceiverInfoRequest{}
+message ReceiverInfoReply {
+  string pubkey = 1 [json_name = "pubkey"];
+}
 
 message RatesRequest {}
 message Rate {
