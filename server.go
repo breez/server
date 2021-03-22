@@ -462,6 +462,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Ping", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Rates", 10000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Rates", 100000, 10000000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 10000, 100000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 5, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 500, 1000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 1000, 100000, 86400),

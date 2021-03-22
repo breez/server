@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/breez/server/breez"
@@ -103,4 +104,8 @@ func (s *server) BreezAppVersions(ctx context.Context, in *breez.BreezAppVersion
 		versions = append(versions, version)
 	}
 	return &breez.BreezAppVersionsReply{Version: versions}, nil
+}
+
+func (s *server) ReceiverInfo(ctx context.Context, in *breez.ReceiverInfoRequest) (*breez.ReceiverInfoReply, error) {
+	return &breez.ReceiverInfoReply{Pubkey: os.Getenv("RECEIVER_NODE")}, nil
 }
