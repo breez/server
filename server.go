@@ -32,6 +32,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 
@@ -56,6 +57,7 @@ var client, ssClient lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
 var walletKitClient, ssWalletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
+var ssRouterClient routerrpc.RouterClient
 var network *chaincfg.Params
 var openChannelReqGroup singleflight.Group
 
@@ -415,6 +417,7 @@ func main() {
 	ssClient = lnrpc.NewLightningClient(subswapConn)
 	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(subswapConn)
 	ssWalletKitClient = walletrpc.NewWalletKitClient(subswapConn)
+	ssRouterClient = routerrpc.NewRouterClient(subswapConn)
 
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
 	go subscribeTransactions(ctx, client)
@@ -509,7 +512,8 @@ func main() {
 		),
 	)
 
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient)
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,
+		insertSubswapPayment, updateSubswapPayment)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{

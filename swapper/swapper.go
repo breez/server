@@ -2,6 +2,7 @@ package swapper
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/gomodule/redigo/redis"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/lightningnetwork/lnd/zpay32"
@@ -31,12 +33,15 @@ const (
 
 // Server implements lsp grpc functions
 type Server struct {
-	network         *chaincfg.Params
-	redisPool       *redis.Pool
-	client          lnrpc.LightningClient
-	ssClient        lnrpc.LightningClient
-	subswapClient   submarineswaprpc.SubmarineSwapperClient
-	walletKitClient walletrpc.WalletKitClient
+	network              *chaincfg.Params
+	redisPool            *redis.Pool
+	client               lnrpc.LightningClient
+	ssClient             lnrpc.LightningClient
+	subswapClient        submarineswaprpc.SubmarineSwapperClient
+	walletKitClient      walletrpc.WalletKitClient
+	ssRouterClient       routerrpc.RouterClient
+	insertSubswapPayment func(paymentHash, paymentRequest string) error
+	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error
 }
 
 func NewServer(
@@ -44,8 +49,13 @@ func NewServer(
 	redisPool *redis.Pool,
 	client, ssClient lnrpc.LightningClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
-	walletKitClient walletrpc.WalletKitClient) *Server {
-	return &Server{network, redisPool, client, ssClient, subswapClient, walletKitClient}
+	walletKitClient walletrpc.WalletKitClient,
+	ssRouterClient routerrpc.RouterClient,
+	insertSubswapPayment func(paymentHash, paymentRequest string) error,
+	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error,
+) *Server {
+	return &Server{network, redisPool, client, ssClient, subswapClient, walletKitClient, ssRouterClient,
+		insertSubswapPayment, updateSubswapPayment}
 }
 
 func (s *Server) AddFundInitLegacy(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
@@ -192,7 +202,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 			PaymentError:       fmt.Sprintf("payment request amount: %v is greater than max allowed: %v", decodedAmt, maxAllowedDeposit),
 		}, nil
 	}
-	log.Printf("GetSwapPayment - paying node %#v amt = %v, maxAllowed = %v", decodedPayReq.Destination, decodedAmt, maxAllowedDeposit)
+	log.Printf("GetSwapPayment - paying node %x amt = %v, maxAllowed = %v", decodedPayReq.Destination.SerializeCompressed(), decodedAmt, maxAllowedDeposit)
 
 	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
 	utxos, err := s.subswapClient.UnspentAmount(subswapClientCtx, &submarineswaprpc.UnspentAmountRequest{Hash: decodedPayReq.PaymentHash[:]})
@@ -247,10 +257,15 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		}, nil
 	}
 
+	err = s.insertSubswapPayment(hex.EncodeToString(decodedPayReq.PaymentHash[:]), in.PaymentRequest)
+	if err != nil {
+		log.Printf("GetSwapPayment - insertSubswapPayment paymentRequest: %v, error: %v", in.PaymentRequest, err)
+		return nil, fmt.Errorf("error in insertSubswapPayment: %w", err)
+	}
 	sendResponse, err := s.ssClient.SendPaymentSync(subswapClientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
 	if err != nil || sendResponse.PaymentError != "" {
 		if sendResponse != nil && sendResponse.PaymentError != "" {
-			err = fmt.Errorf("Error in payment response: %v", sendResponse.PaymentError)
+			err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
 		}
 		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
 		return nil, err
@@ -265,9 +280,34 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
 		return nil, err
 	}
+	err = s.updateSubswapPayment(hex.EncodeToString(decodedPayReq.PaymentHash[:]), hex.EncodeToString(sendResponse.PaymentPreimage), redeem.Txid)
+	if err != nil {
+		log.Printf("GetSwapPayment - updateSubswapPayment preimage: %x, txid: %v, error: %v", sendResponse.PaymentPreimage, redeem.Txid, err)
+		return nil, fmt.Errorf("error in updateSubswapPayment: %w", err)
+	}
 
 	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
+}
+
+func (s *Server) RedeemSwapPayment(ctx context.Context, in *breez.RedeemSwapPaymentRequest) (*breez.RedeemSwapPaymentReply, error) {
+	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+	if in.SatPerByte == 0 && in.TargetConf == 0 {
+		in.TargetConf = 30
+	}
+	redeem, err := s.subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
+		Preimage:   in.Preimage,
+		TargetConf: in.TargetConf,
+		SatPerByte: in.SatPerByte,
+	})
+	if err != nil {
+		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(in.Preimage), err)
+		return nil, err
+	}
+	h := sha256.Sum256(in.Preimage)
+	s.updateSubswapPayment(hex.EncodeToString(h[:]), hex.EncodeToString(in.Preimage), redeem.Txid)
+	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
+	return &breez.RedeemSwapPaymentReply{Txid: redeem.Txid}, nil
 }
 
 //Calculate the max allowed deposit for a node
@@ -310,4 +350,14 @@ func (s *Server) GetReverseRoutingNode(ctx context.Context, in *breez.GetReverse
 		return nil, fmt.Errorf("GetReverseRoutingNode error in hex.DecodeString(%v): %w", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
 	}
 	return &breez.GetReverseRoutingNodeReply{NodeId: nodeID}, nil
+}
+
+func (s *Server) RedeemSwapPayments() {
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	listPaymentsResponse, err := s.client.ListPayments(clientCtx, &lnrpc.ListPaymentsRequest{
+		IncludeIncomplete: true,
+		MaxPayments:       100000,
+	})
+	_ = err
+	_ = listPaymentsResponse.Payments[0]
 }

@@ -44,6 +44,41 @@ func pgConnect() error {
 	return nil
 }
 
+func insertSubswapPayment(paymentHash, paymentRequest string) error {
+	commandTag, err := pgxPool.Exec(context.Background(),
+		`INSERT INTO swap_payments
+          (payment_hash, payment_request)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING`, paymentHash, paymentRequest)
+	if err != nil {
+		log.Printf("pgxPool.Exec('INSERT INTO swap_payments(%v, %v): %v",
+			paymentHash, paymentRequest, err)
+		return fmt.Errorf("pgxPool.Exec(): %w", err)
+	}
+	log.Printf("pgxPool.Exec('INSERT INTO swap_payments(%v, %v)'; RowsAffected(): %v'",
+		paymentHash, paymentRequest, commandTag.RowsAffected())
+	return nil
+}
+
+func updateSubswapPayment(paymentHash, paymentPreimage, TxID string) error {
+	var txid pgtype.JSONBArray
+	txid.Set([]string{TxID})
+	commandTag, err := pgxPool.Exec(context.Background(),
+		`UPDATE swap_payments
+         SET
+          payment_preimage=$2,
+          txid=txid||$3
+         WHERE payment_hash=$1`, paymentHash, paymentPreimage, txid)
+	if err != nil {
+		log.Printf("pgxPool.Exec('UPDATE swap_payments(%v, %v, %v): %v",
+			paymentHash, paymentPreimage, TxID, err)
+		return fmt.Errorf("pgxPool.Exec(): %w", err)
+	}
+	log.Printf("pgxPool.Exec('UPDATE INTO swap_payments(%v, %v, %v)'; RowsAffected(): %v'",
+		paymentHash, paymentPreimage, TxID, commandTag.RowsAffected())
+	return nil
+}
+
 func insertTxNotification(in *breez.PushTxNotificationRequest) (*uuid.UUID, error) {
 	u, err := uuid.NewRandom()
 	if err != nil {
