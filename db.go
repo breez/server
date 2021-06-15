@@ -61,14 +61,12 @@ func insertSubswapPayment(paymentHash, paymentRequest string) error {
 }
 
 func updateSubswapPayment(paymentHash, paymentPreimage, TxID string) error {
-	var txid pgtype.JSONBArray
-	txid.Set([]string{TxID})
 	commandTag, err := pgxPool.Exec(context.Background(),
 		`UPDATE swap_payments
          SET
           payment_preimage=$2,
           txid=txid||$3
-         WHERE payment_hash=$1`, paymentHash, paymentPreimage, txid)
+         WHERE payment_hash=$1`, paymentHash, paymentPreimage, []string{TxID})
 	if err != nil {
 		log.Printf("pgxPool.Exec('UPDATE swap_payments(%v, %v, %v): %v",
 			paymentHash, paymentPreimage, TxID, err)
