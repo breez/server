@@ -160,6 +160,7 @@ func (s *Server) OpenPublicChannel(ctx context.Context, in *breez.OpenPublicChan
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
 	r, err := lspdClient.OpenChannel(clientCtx, &lspdrpc.OpenChannelRequest{Pubkey: in.Pubkey})
+	log.Printf("lspdClient.OpenChannel(%v): %#v err: %#v", in.Pubkey, r, err)
 	if err != nil {
 		return nil, err // Log and returns another error.
 	}
