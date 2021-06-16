@@ -143,6 +143,8 @@ github.com/breez/lspd v0.0.0-20201224160157-11dc17ae2da4 h1:YC0IdlBsYGdbrx4Aehq2
 github.com/breez/lspd v0.0.0-20201224160157-11dc17ae2da4/go.mod h1:HbICt1KpPE9dB9vFyPR37GcMkM5wTGa+WBBdPB6norg=
 github.com/breez/lspd v0.0.0-20210221151902-d532a78143d0 h1:VPiWwz76+6GiPzcUGDrDLHXA2HR4usdhrB/fRgxkro8=
 github.com/breez/lspd v0.0.0-20210221151902-d532a78143d0/go.mod h1:IX/o0QEerKvc0jeV6AaBtaXvCLmB3JWtvofxxtO1/KE=
+github.com/breez/lspd v0.0.0-20210616153301-b86a77ab6925 h1:OI0UayDreQsTfxsM9C6W3n6aFpIFu0bAMils1x6rge4=
+github.com/breez/lspd v0.0.0-20210616153301-b86a77ab6925/go.mod h1:+oHOxj6sxVI2ltL1tfnhI4LyOFS7FbcJhr0pKk3kLas=
 github.com/btcsuite/btcd v0.0.0-20180823030728-d81d8877b8f3/go.mod h1:Dmm/EzmjnCiweXmzRIAiUWCInVmPgjkzgv5k4tVyXiQ=
 github.com/btcsuite/btcd v0.0.0-20180824064422-ed77733ec07dfc8a513741138419b8d9d3de9d2d/go.mod h1:d3C0AkH6BRcvO8T0UEPu53cnw4IbV63x1bEjildYhO0=
 github.com/btcsuite/btcd v0.0.0-20181130015935-7d2daa5bfef2/go.mod h1:Jr9bmNVGZ7TH2Ux1QuP0ec+yGgh0gE9FIlkzQiI5bR0=

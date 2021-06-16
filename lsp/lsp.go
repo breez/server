@@ -108,18 +108,19 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 		} else {
 			log.Printf("ChannelInformation: %#v", ci)
 			li := &breez.LSPInformation{
-				Name:                ci.Name,
-				Pubkey:              ci.Pubkey,
-				Host:                ci.Host,
-				ChannelCapacity:     ci.ChannelCapacity,
-				TargetConf:          ci.TargetConf,
-				BaseFeeMsat:         ci.BaseFeeMsat,
-				FeeRate:             ci.FeeRate,
-				TimeLockDelta:       ci.TimeLockDelta,
-				MinHtlcMsat:         ci.MinHtlcMsat,
-				ChannelFeePermyriad: ci.ChannelFeePermyriad,
-				LspPubkey:           ci.LspPubkey,
-				MaxInactiveDuration: ci.MaxInactiveDuration,
+				Name:                  ci.Name,
+				Pubkey:                ci.Pubkey,
+				Host:                  ci.Host,
+				ChannelCapacity:       ci.ChannelCapacity,
+				TargetConf:            ci.TargetConf,
+				BaseFeeMsat:           ci.BaseFeeMsat,
+				FeeRate:               ci.FeeRate,
+				TimeLockDelta:         ci.TimeLockDelta,
+				MinHtlcMsat:           ci.MinHtlcMsat,
+				ChannelFeePermyriad:   ci.ChannelFeePermyriad,
+				ChannelMinimumFeeMsat: ci.ChannelMinimumFeeMsat,
+				LspPubkey:             ci.LspPubkey,
+				MaxInactiveDuration:   ci.MaxInactiveDuration,
 			}
 			r.Lsps[id] = li
 		}
