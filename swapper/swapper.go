@@ -262,6 +262,10 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("GetSwapPayment - insertSubswapPayment paymentRequest: %v, error: %v", in.PaymentRequest, err)
 		return nil, fmt.Errorf("error in insertSubswapPayment: %w", err)
 	}
+	_, err = s.ssRouterClient.ResetMissionControl(subswapClientCtx, &routerrpc.ResetMissionControlRequest{})
+	if err != nil {
+		log.Printf("GetSwapPayment - ResetMissionControl paymentRequest: %v, error: %v", in.PaymentRequest, err)
+	}
 	sendResponse, err := s.ssClient.SendPaymentSync(subswapClientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
 	if err != nil || sendResponse.PaymentError != "" {
 		if sendResponse != nil && sendResponse.PaymentError != "" {
