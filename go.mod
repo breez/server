@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go v1.30.20
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
 	github.com/breez/lspd v0.0.0-20210616153301-b86a77ab6925
-	github.com/btcsuite/btcd v0.20.1-beta.0.20200730232343-1db1b6f8217f
+	github.com/btcsuite/btcd v0.21.0-beta.0.20201208033208-6bd4c64a54fa
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
 	github.com/codahale/chacha20 v0.0.0-20151107025005-ec07b4f69a3f // indirect
@@ -28,7 +28,7 @@ require (
 	github.com/jackc/pgx/v4 v4.8.1
 	github.com/joho/godotenv v1.2.0
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 // indirect
-	github.com/lightningnetwork/lnd v0.11.0-beta
+	github.com/lightningnetwork/lnd v0.12.1-beta
 	github.com/mojocn/base64Captcha v0.0.0-20190801020520-752b1cd608b2
 	github.com/pkg/errors v0.9.1
 	go.starlark.net v0.0.0-20200821142938-949cc6f4b097
@@ -40,4 +40,4 @@ require (
 	google.golang.org/grpc v1.30.0
 )
 
-replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.11.0-beta.rc4.0.20210216134321-d7f38556e08d
+replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.12.1-beta.rc6.0.20210719131344-b444ae37125d

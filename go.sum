@@ -127,6 +127,8 @@ github.com/breez/lnd v0.11.0-beta.rc4.0.20201203092954-c9339066c264 h1:gSxh47kJW
 github.com/breez/lnd v0.11.0-beta.rc4.0.20201203092954-c9339066c264/go.mod h1:pHqVvvdFLSKiS/nQ3Tr5230Gl70LXcKI5gPbtje0QrA=
 github.com/breez/lnd v0.11.0-beta.rc4.0.20210216134321-d7f38556e08d h1:JirVyo+Uctc9HlxA8LPtRCZuuxtAWEBFDkJmImX669A=
 github.com/breez/lnd v0.11.0-beta.rc4.0.20210216134321-d7f38556e08d/go.mod h1:REw95/bkC/6DqfpJYnVRr1ud5kGYtVJSfXoy+zyBRvE=
+github.com/breez/lnd v0.12.1-beta.rc6.0.20210719131344-b444ae37125d h1:GZ1GEkE9L/DbWM7vhjEsByO7IZqE2PeTzj/LZDJJOIA=
+github.com/breez/lnd v0.12.1-beta.rc6.0.20210719131344-b444ae37125d/go.mod h1:2GyP1IG1kXV5Af/LOCxnXfux1OP3fAGr8zptS5PB2YI=
 github.com/breez/lspd v0.0.0-20190717144915-1cd9ecac5c91 h1:yWT9mKoOtZ4MDYVI12VVzfzfQmMnN2g3e2TUATBgGVs=
 github.com/breez/lspd v0.0.0-20190717144915-1cd9ecac5c91/go.mod h1:6AB46m2MoI+9PIH7IVBVsgf3Kchky71Jb1QyV0VUEzI=
 github.com/breez/lspd v0.0.0-20190717145157-5e48f77ab363 h1:471lMmFXnwo2AP+KgJak3CmuqJ2UNd5rrfzIKWHiWFo=
@@ -163,6 +165,8 @@ github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13P
 github.com/btcsuite/btcd v0.20.1-beta.0.20200513120220-b470eee47728/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.20.1-beta.0.20200730232343-1db1b6f8217f h1:m/GhMTvDQLbID616c4TYdHyt0MZ9lH5B/nf9Lu3okCY=
 github.com/btcsuite/btcd v0.20.1-beta.0.20200730232343-1db1b6f8217f/go.mod h1:ZSWyehm27aAuS9bvkATT+Xte3hjHZ+MRgMY/8NJ7K94=
+github.com/btcsuite/btcd v0.21.0-beta.0.20201208033208-6bd4c64a54fa h1:sobXG8TE1VEBX4QWOzSKyulSwuOFdb8vzyhGyblXrmQ=
+github.com/btcsuite/btcd v0.21.0-beta.0.20201208033208-6bd4c64a54fa/go.mod h1:Sv4JPQ3/M+teHz9Bo5jBpkNcP0x6r7rdihlNL/7tTAs=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f h1:bAs4lUbRJpnnkd9VhRV3jjAVU7DJVjMaK+IsvSeZvFo=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=
 github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a/go.mod h1:+5NJ2+qvTyV9exUAL/rxXi3DcLg2Ts+ymUAY5y4NvMg=
@@ -175,6 +179,8 @@ github.com/btcsuite/btcutil v1.0.2 h1:9iZ1Terx9fMIOtq1VrwdqfsATL9MC2l8ZrUY6YZ2ut
 github.com/btcsuite/btcutil v1.0.2/go.mod h1:j9HUFwoQRsZL3V4n+qG+CUnEGHOarIxfC3Le2Yhbcts=
 github.com/btcsuite/btcutil/psbt v1.0.2 h1:gCVY3KxdoEVU7Q6TjusPO+GANIwVgr9yTLqM+a6CZr8=
 github.com/btcsuite/btcutil/psbt v1.0.2/go.mod h1:LVveMu4VaNSkIRTZu2+ut0HDBRuYjqGocxDMNS1KuGQ=
+github.com/btcsuite/btcutil/psbt v1.0.3-0.20200826194809-5f93e33af2b0 h1:3Zumkyl6PWyHuVJ04me0xeD9CnPOhNgeGpapFbzy7O4=
+github.com/btcsuite/btcutil/psbt v1.0.3-0.20200826194809-5f93e33af2b0/go.mod h1:LVveMu4VaNSkIRTZu2+ut0HDBRuYjqGocxDMNS1KuGQ=
 github.com/btcsuite/btcwallet v0.0.0-20180904010540-284e2e0e696e33d5be388f7f3d9a26db703e0c06/go.mod h1:/d7QHZsfUAruXuBhyPITqoYOmJ+nq35qPsJjz/aSpCg=
 github.com/btcsuite/btcwallet v0.0.0-20190123033236-ba03278a64bc h1:E7lDde/zAxAfvF750wMP0pUIAzF+wtwO2jQRy++q60U=
 github.com/btcsuite/btcwallet v0.0.0-20190123033236-ba03278a64bc/go.mod h1:+u1ftn+QOb9qHKwsLf7rBOr0PHCo9CGA7U1WFq7VLA4=
@@ -189,6 +195,8 @@ github.com/btcsuite/btcwallet v0.10.0/go.mod h1:4TqBEuceheGNdeLNrelliLHJzmXauMM2
 github.com/btcsuite/btcwallet v0.11.0/go.mod h1:qtPAohN1ioo0pvJt/j7bZM8ANBWlYWVCVFL0kkijs7s=
 github.com/btcsuite/btcwallet v0.11.1-0.20200814001439-1d31f4ea6fc5 h1:1We7EuizBnX/17Q6O2dkeToyehxzUHo62Wv1c0ncr7c=
 github.com/btcsuite/btcwallet v0.11.1-0.20200814001439-1d31f4ea6fc5/go.mod h1:YkEbJaCyN6yncq5gEp2xG0OKDwus2QxGCEXTNF27w5I=
+github.com/btcsuite/btcwallet v0.11.1-0.20201207233335-415f37ff11a1 h1:3gvLezYoUkr9MvxocB/vyPNzL+gSqsNT4Q6XTPK+R04=
+github.com/btcsuite/btcwallet v0.11.1-0.20201207233335-415f37ff11a1/go.mod h1:P1U4LKSB/bhFQdOM7ab1XqNoBGFyFAe7eKObEBD9mIo=
 github.com/btcsuite/btcwallet/wallet/txauthor v1.0.0 h1:KGHMW5sd7yDdDMkCZ/JpP0KltolFsQcB973brBnfj4c=
 github.com/btcsuite/btcwallet/wallet/txauthor v1.0.0/go.mod h1:VufDts7bd/zs3GV13f/lXc/0lXrPnvxD/NvmpG/FEKU=
 github.com/btcsuite/btcwallet/wallet/txrules v1.0.0 h1:2VsfS0sBedcM5KmDzRMT3+b6xobqWveZGvjb+jFez5w=
@@ -202,6 +210,8 @@ github.com/btcsuite/btcwallet/walletdb v1.2.0/go.mod h1:9cwc1Yyg4uvd4ZdfdoMnALji
 github.com/btcsuite/btcwallet/walletdb v1.3.2/go.mod h1:GZCMPNpUu5KE3ASoVd+k06p/1OW8OwNGCCaNWRto2cQ=
 github.com/btcsuite/btcwallet/walletdb v1.3.3 h1:u6e7vRIKBF++cJy+hOHaMGg+88ZTwvpaY27AFvtB668=
 github.com/btcsuite/btcwallet/walletdb v1.3.3/go.mod h1:oJDxAEUHVtnmIIBaa22wSBPTVcs6hUp5NKWmI8xDwwU=
+github.com/btcsuite/btcwallet/walletdb v1.3.4 h1:ExdPQSfYRLoYMEENsjWyl4w0PePLm9w3wg69nsRS2xc=
+github.com/btcsuite/btcwallet/walletdb v1.3.4/go.mod h1:oJDxAEUHVtnmIIBaa22wSBPTVcs6hUp5NKWmI8xDwwU=
 github.com/btcsuite/btcwallet/wtxmgr v1.0.0 h1:aIHgViEmZmZfe0tQQqF1xyd2qBqFWxX5vZXkkbjtbeA=
 github.com/btcsuite/btcwallet/wtxmgr v1.0.0/go.mod h1:vc4gBprll6BP0UJ+AIGDaySoc7MdAmZf8kelfNb8CFY=
 github.com/btcsuite/btcwallet/wtxmgr v1.2.0 h1:ZUYPsSv8GjF9KK7lboB2OVHF0uYEcHxgrCfFWqPd9NA=
@@ -580,6 +590,8 @@ github.com/lightninglabs/neutrino v0.11.1-0.20200316235139-bffc52e8f200 h1:j4iZ1
 github.com/lightninglabs/neutrino v0.11.1-0.20200316235139-bffc52e8f200/go.mod h1:MlZmoKa7CJP3eR1s5yB7Rm5aSyadpKkxqAwLQmog7N0=
 github.com/lightninglabs/neutrino v0.11.1-0.20200430233911-38bf97e348a3 h1:YcUvxr8n29gYbANY3tt6IfMZxH63Mpl7/pogyjpkKX8=
 github.com/lightninglabs/neutrino v0.11.1-0.20200430233911-38bf97e348a3/go.mod h1:MlZmoKa7CJP3eR1s5yB7Rm5aSyadpKkxqAwLQmog7N0=
+github.com/lightninglabs/neutrino v0.11.1-0.20201210023533-e1978372d15e h1:K5LCCnSAk3NVT/aCy8wNPv0I5JfyLgijg1VX8Gz306E=
+github.com/lightninglabs/neutrino v0.11.1-0.20201210023533-e1978372d15e/go.mod h1:KDWfQDKp+CFBxO1t2NRmWuagTY2sYIjpHB1k5vrojTI=
 github.com/lightninglabs/protobuf-hex-display v1.3.3-0.20191212020323-b444784ce75d/go.mod h1:KDb67YMzoh4eudnzClmvs2FbiLG9vxISmLApUkCa4uI=
 github.com/lightningnetwork/lightning-onion v0.0.0-20180605012408-ac4d9da8f1d6 h1:ONLGrYJVQdbtP6CE/ff1KNWZtygRGEh12RzonTiCzPs=
 github.com/lightningnetwork/lightning-onion v0.0.0-20180605012408-ac4d9da8f1d6/go.mod h1:8EgEt4a/NUOVQd+3kk6n9aZCJ1Ssj96Pb6lCrci+6oc=
@@ -600,6 +612,7 @@ github.com/lightningnetwork/lnd v0.8.0-beta-rc3.0.20191221022352-72a49d486ae4 h1
 github.com/lightningnetwork/lnd v0.8.0-beta-rc3.0.20191221022352-72a49d486ae4/go.mod h1:WHK90FD3m2n6OyWzondS7ho0Uhtgfp30Nxvj24lQYX4=
 github.com/lightningnetwork/lnd/cert v1.0.0/go.mod h1:fmtemlSMf5t4hsQmcprSoOykypAPp+9c+0d0iqTScMo=
 github.com/lightningnetwork/lnd/cert v1.0.2/go.mod h1:fmtemlSMf5t4hsQmcprSoOykypAPp+9c+0d0iqTScMo=
+github.com/lightningnetwork/lnd/cert v1.0.3/go.mod h1:3MWXVLLPI0Mg0XETm9fT4N9Vyy/8qQLmaM5589bEggM=
 github.com/lightningnetwork/lnd/clock v1.0.1 h1:QQod8+m3KgqHdvVMV+2DRNNZS1GRFir8mHZYA+Z2hFo=
 github.com/lightningnetwork/lnd/clock v1.0.1/go.mod h1:KnQudQ6w0IAMZi1SgvecLZQZ43ra2vpDNj7H/aasemg=
 github.com/lightningnetwork/lnd/queue v1.0.0/go.mod h1:vaQwexir73flPW43Mrm7JOgJHmcEFBWWSl9HlyASoms=
