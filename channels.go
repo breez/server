@@ -85,12 +85,15 @@ func subscribeChannelAcceptorOnce(ctx context.Context, c lnrpc.LightningClient, 
 			return err
 		}
 		accept, errorText := isAccepted(acceptScript, r.NodePubkey, r.FundingAmt)
-		log.Printf("isAccepted returned: %v", accept)
-		err = channelAcceptorClient.Send(&lnrpc.ChannelAcceptResponse{
+		log.Printf("isAccepted returned: %v, %v", accept, errorText)
+		channelAcceptResponse := &lnrpc.ChannelAcceptResponse{
 			PendingChanId: r.PendingChanId,
 			Accept:        accept,
-			Error:         errorText,
-		})
+		}
+		if !accept {
+			channelAcceptResponse.Error = errorText
+		}
+		err = channelAcceptorClient.Send(channelAcceptResponse)
 		if err != nil {
 			log.Printf("Error in channelAcceptorClient.Send(%v, %v): %v", r.PendingChanId, accept, err)
 			return err
