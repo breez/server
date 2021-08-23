@@ -13,6 +13,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const (
+	minFees = 1112
+)
+
 var (
 	feeEstimates string
 )
@@ -26,7 +30,11 @@ func genFeeEstimates(hash string) {
 		if err != nil {
 			log.Printf("walletKitClient.EstimateFee(%v): %v", ct, err)
 		}
-		feeByBlockTarget[ct] = uint32(r.SatPerKw * blockchain.WitnessScaleFactor)
+		fees := uint32(r.SatPerKw * blockchain.WitnessScaleFactor)
+		if fees < minFees {
+			fees = minFees
+		}
+		feeByBlockTarget[ct] = fees
 	}
 	b, err := json.Marshal(struct {
 		CurrentBlockHash string            `json:"current_block_hash"`
