@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/btcsuite/btcutil"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"go.starlark.net/starlark"
 )
@@ -84,20 +85,40 @@ func subscribeChannelAcceptorOnce(ctx context.Context, c lnrpc.LightningClient, 
 			log.Printf("Error in channelAcceptorClient.Recv(): %v", err)
 			return err
 		}
-		accept, errorText := isAccepted(acceptScript, r.NodePubkey, r.FundingAmt)
-		log.Printf("isAccepted returned: %v, %v", accept, errorText)
-		channelAcceptResponse := &lnrpc.ChannelAcceptResponse{
-			PendingChanId: r.PendingChanId,
-			Accept:        accept,
-		}
-		if !accept {
-			channelAcceptResponse.Error = errorText
-		}
-		err = channelAcceptorClient.Send(channelAcceptResponse)
+
+		resp := channelAcceptor(r, acceptScript)
+		err = channelAcceptorClient.Send(resp)
 		if err != nil {
-			log.Printf("Error in channelAcceptorClient.Send(%v, %v): %v", r.PendingChanId, accept, err)
+			log.Printf("Error in channelAcceptorClient.Send(%v, %v): %v", r.PendingChanId, resp.Accept, err)
 			return err
 		}
 	}
 	return nil
+}
+
+func channelAcceptor(req *lnrpc.ChannelAcceptRequest, acceptScript string) *lnrpc.ChannelAcceptResponse {
+	// Define the minimum dust limit we'll accept. This will be the dust
+	// limit of the smallest P2WSH output considered standard.
+	minDustLimit := btcutil.Amount(330)
+
+	// Define the maximum dust limit we'll accept. This will be:
+	// 3 * minDustLimit.
+	maxDustLimit := minDustLimit * 3
+
+	resp := &lnrpc.ChannelAcceptResponse{PendingChanId: req.PendingChanId}
+
+	// Compare the received dust limit from OpenChannel against our bounds.
+	receivedLimit := btcutil.Amount(req.DustLimit)
+	if receivedLimit < minDustLimit || receivedLimit > maxDustLimit {
+		// Reject the channel.
+		resp.Accept = false
+		return resp
+	}
+	accept, errorText := isAccepted(acceptScript, req.NodePubkey, req.FundingAmt)
+	log.Printf("isAccepted returned: %v, %v", accept, errorText)
+	resp.Accept = accept
+	if !accept {
+		resp.Error = errorText
+	}
+	return resp
 }
