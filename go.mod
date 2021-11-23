@@ -38,6 +38,7 @@ require (
 	golang.org/x/text v0.3.3
 	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.30.0
+	google.golang.org/protobuf v1.25.0
 )
 
 replace github.com/lightningnetwork/lnd => github.com/breez/lnd v0.12.1-beta.rc6.0.20210719131344-b444ae37125d

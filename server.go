@@ -509,6 +509,11 @@ func main() {
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 1000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/SetNodeInfo", 1000, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/SetNodeInfo", 1000, 100000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 100000, 86400),
 		),
 	)
 
@@ -530,6 +535,7 @@ func main() {
 	breez.RegisterSyncNotifierServer(s, &server{})
 	breez.RegisterPushTxNotifierServer(s, &server{})
 	breez.RegisterInactiveNotifierServer(s, &server{})
+	breez.RegisterNodeInfoServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)

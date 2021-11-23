@@ -62,6 +62,11 @@ service CTP {
   rpc TerminateCTPSession (TerminateCTPSessionRequest) returns (TerminateCTPSessionResponse) {}
 }
 
+service NodeInfo {
+ rpc SetNodeInfo (SetNodeInfoRequest) returns (SetNodeInfoResponse) {}
+ rpc GetNodeInfo (GetNodeInfoRequest) returns (GetNodeInfoResponse) {}
+}
+
 service SyncNotifier {
   rpc RegisterPeriodicSync(RegisterPeriodicSyncRequest) returns (RegisterPeriodicSyncResponse) {}
 }
@@ -312,6 +317,27 @@ message OrderRequest {
 }
 
 message OrderReply {
+}
+
+message SetNodeInfoRequest {
+ bytes pubkey = 1;
+ bytes key = 2;
+ bytes value = 3;
+ int64 timestamp = 4;
+ string signature = 5;
+}
+
+message SetNodeInfoResponse {}
+
+message GetNodeInfoRequest {
+ bytes pubkey = 1;
+ bytes key = 2;
+}
+
+message GetNodeInfoResponse {
+ bytes value = 1;
+ int64 timestamp = 2;
+ string signature = 3;
 }
 
 message JoinCTPSessionRequest {
