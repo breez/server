@@ -281,58 +281,6 @@ func (s *server) InactiveNotify(ctx context.Context, in *breez.InactiveNotifyReq
 	return &breez.InactiveNotifyResponse{}, nil
 }
 
-// SetMeetingInfo sets the meeting information by the meeting moderator. The moderator provides a proof by signing the value
-func (s *server) SetMeetingInfo(ctx context.Context, in *breez.SetMeetingInfoRequest) (*breez.SetMeetingInfoResponse, error) {
-	// First verify the message
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	verificationResponse, err := client.VerifyMessage(clientCtx, &lnrpc.VerifyMessageRequest{
-		Msg:       in.Value,
-		Signature: in.Signature,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !verificationResponse.Valid || verificationResponse.Pubkey != in.Key {
-		return nil, errors.New("failed to verify value")
-	}
-
-	// Update the value in redis and set expiration of 1 hour.
-	if err := updateKeyFields(in.Key, map[string]string{"value": hex.EncodeToString(in.Value)}); err != nil {
-		return nil, fmt.Errorf("failed to update value")
-	}
-	if err := setKeyExpiration(in.Key, 3600); err != nil {
-		return nil, err
-	}
-	return &breez.SetMeetingInfoResponse{}, nil
-}
-
-// GetMeetingInfo is used by other participants to get the meeting information. They should verify the message using th
-// provided signature.
-func (s *server) GetMeetingInfo(ctx context.Context, in *breez.GetMeetingInfoRequest) (*breez.GetMeetingInfoResponse, error) {
-	fields, err := getKeyFields(in.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	rawVal, ok := fields["value"]
-	if !ok {
-		return nil, fmt.Errorf("failed to get value")
-	}
-	signature, ok := fields["signature"]
-	if !ok {
-		return nil, fmt.Errorf("failed to get value")
-	}
-	stringVal, err := hex.DecodeString(rawVal)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get value")
-	}
-
-	return &breez.GetMeetingInfoResponse{
-		Value:     stringVal,
-		Signature: signature,
-	}, nil
-}
-
 //JoinCTPSession is used by both payer/payee to join a CTP session.
 func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
 	sessionID, expiry, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)

@@ -62,9 +62,9 @@ service CTP {
   rpc TerminateCTPSession (TerminateCTPSessionRequest) returns (TerminateCTPSessionResponse) {}
 }
 
-service Jitsi {
- rpc SetMeetingInfo (SetMeetingInfoRequest) returns (SetMeetingInfoResponse) {}
- rpc GetMeetingInfo (GetMeetingInfoRequest) returns (GetMeetingInfoResponse) {}
+service NodeInfo {
+ rpc SetNodeInfo (SetNodeInfoRequest) returns (SetNodeInfoResponse) {}
+ rpc GetNodeInfo (GetNodeInfoRequest) returns (GetNodeInfoResponse) {}
 }
 
 service SyncNotifier {
@@ -319,21 +319,25 @@ message OrderRequest {
 message OrderReply {
 }
 
-message SetMeetingInfoRequest {
- string key = 1;
- bytes value = 2;
- string signature = 3;
+message SetNodeInfoRequest {
+ bytes pubkey = 1;
+ bytes key = 2;
+ bytes value = 3;
+ int64 timestamp = 4;
+ string signature = 5;
 }
 
-message SetMeetingInfoResponse {}
+message SetNodeInfoResponse {}
 
-message GetMeetingInfoRequest {
- string key = 1;
+message GetNodeInfoRequest {
+ bytes pubkey = 1;
+ bytes key = 2;
 }
 
-message GetMeetingInfoResponse {
+message GetNodeInfoResponse {
  bytes value = 1;
- string signature = 2;
+ int64 timestamp = 2;
+ string signature = 3;
 }
 
 message JoinCTPSessionRequest {
