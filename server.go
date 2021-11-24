@@ -535,6 +535,7 @@ func main() {
 	breez.RegisterSyncNotifierServer(s, &server{})
 	breez.RegisterPushTxNotifierServer(s, &server{})
 	breez.RegisterInactiveNotifierServer(s, &server{})
+	breez.RegisterNodeInfoServer(s, &server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
