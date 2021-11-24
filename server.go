@@ -542,4 +542,31 @@ func main() {
 	if err := s.Serve(lisGRPC); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	client.GetNodeInfo(clientCtxn)
+	timestamp := time.Now().Unix()
+	msg := fmt.Sprintf("%v-%v-%v", hex.EncodeToString([]byte("routing_hints")), hex.EncodeToString([]byte("val")), timestamp)
+	responpse, err := client.SignMessage(clientCtx, &lnrpc.SignMessageRequest{
+		Msg: []byte(msg),
+	})
+	if err != nil {
+		log.Fatalf("failed to sign message")
+	}
+	server := &server{}
+	_, err = server.SetNodeInfo(context.Background(), &breez.SetNodeInfoRequest{
+		Key:       []byte("routing_hints"),
+		Value:     []byte("val"),
+		Signature: responpse.Signature,
+		Pubkey:    []byte(""),
+	})
+	if err != nil {
+		log.Fatalf("failed to set message")
+	}
+
+	re, err := server.GetNodeInfo(context.Background(), &breez.GetNodeInfoRequest{
+		Pubkey: []byte(""),
+		Key:    []byte("test"),
+	})
+	fmt.Println(re.Value)
 }

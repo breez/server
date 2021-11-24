@@ -31,14 +31,10 @@ func (s *server) SetNodeInfo(ctx context.Context, in *breez.SetNodeInfoRequest) 
 
 	// concatenate all request payload fields
 	msg := fmt.Sprintf("%v-%v-%v", hex.EncodeToString(in.Key), hex.EncodeToString(in.Value), in.Timestamp)
-	msgBytes, err := hex.DecodeString(msg)
-	if err != nil {
-		return nil, err
-	}
 
 	// Verify the message
 	verificationResponse, err := client.VerifyMessage(clientCtx, &lnrpc.VerifyMessageRequest{
-		Msg:       msgBytes,
+		Msg:       []byte(msg),
 		Signature: in.Signature,
 	})
 	if err != nil {
