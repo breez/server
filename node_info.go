@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -21,6 +22,7 @@ var (
 	allowedKeys         = map[string]struct{}{
 		"routing_hints": {},
 	}
+	maxRequesTimeDiff = time.Second * 10
 )
 
 // SetNodeInfo sets the meeting information by the meeting moderator. The moderator provides a proof by signing the value
@@ -30,7 +32,8 @@ func (s *server) SetNodeInfo(ctx context.Context, in *breez.SetNodeInfoRequest) 
 	if _, ok := allowedKeys[string(in.Key)]; !ok {
 		return nil, ErrKeyNotSupported
 	}
-	if time.Now().Sub(time.Unix(in.Timestamp, 0)) > time.Second*10 {
+	requestTimeDiff := time.Now().Sub(time.Unix(in.Timestamp, 0))
+	if math.Abs(float64(requestTimeDiff)) > float64(maxRequesTimeDiff) {
 		return nil, ErrInvalidTimestamp
 	}
 
