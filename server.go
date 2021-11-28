@@ -33,6 +33,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/signrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 
@@ -55,6 +56,7 @@ const (
 
 var client, ssClient lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
+var signerClient signrpc.SignerClient
 var walletKitClient, ssWalletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
 var ssRouterClient routerrpc.RouterClient
@@ -400,6 +402,7 @@ func main() {
 	}
 	defer conn.Close()
 	client = lnrpc.NewLightningClient(conn)
+	signerClient = signrpc.NewSignerClient(conn)
 	walletKitClient = walletrpc.NewWalletKitClient(conn)
 	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
 
