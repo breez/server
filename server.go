@@ -30,6 +30,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/lightningnetwork/lnd/keychain"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -539,6 +540,48 @@ func main() {
 	breez.RegisterPushTxNotifierServer(s, &server{})
 	breez.RegisterInactiveNotifierServer(s, &server{})
 	breez.RegisterNodeInfoServer(s, &server{})
+
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+	inf, err := client.GetInfo(clientCtx, &lnrpc.GetInfoRequest{})
+	if err != nil {
+		log.Fatalf("faield to get info")
+	}
+	timestamp := time.Now().Unix()
+	msg := fmt.Sprintf("%v-%v-%v", "routing_hints", hex.EncodeToString([]byte("val")), timestamp)
+	responpse, err := signerClient.SignMessage(clientCtx, &signrpc.SignMessageReq{
+		KeyLoc: &signrpc.KeyLocator{
+			KeyFamily: int32(keychain.KeyFamilyNodeKey),
+			KeyIndex:  0,
+		},
+		Msg: []byte(msg),
+	})
+	if err != nil {
+		log.Fatalf("failed to sign message")
+	}
+	server := &server{}
+	decodedPubkey, err := hex.DecodeString(inf.IdentityPubkey)
+	if err != nil {
+		log.Fatalf("failed to sign message")
+	}
+	_, err = server.SetNodeInfo(context.Background(), &breez.SetNodeInfoRequest{
+		Key:       "routing_hints",
+		Value:     []byte("val"),
+		Signature: responpse.Signature,
+		Pubkey:    decodedPubkey,
+	})
+	if err != nil {
+		log.Fatalf("failed to set message")
+	}
+
+	re, err := server.GetNodeInfo(context.Background(), &breez.GetNodeInfoRequest{
+		Pubkey: decodedPubkey,
+		Key:    "routing_hints",
+	})
+	if err != nil {
+		log.Fatalf("failed to set message")
+	}
+
+	fmt.Println(re.Value)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
