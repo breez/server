@@ -321,23 +321,23 @@ message OrderReply {
 
 message SetNodeInfoRequest {
  bytes pubkey = 1;
- bytes key = 2;
+ string key = 2;
  bytes value = 3;
  int64 timestamp = 4;
- string signature = 5;
+ bytes signature = 5;
 }
 
 message SetNodeInfoResponse {}
 
 message GetNodeInfoRequest {
  bytes pubkey = 1;
- bytes key = 2;
+ string key = 2;
 }
 
 message GetNodeInfoResponse {
  bytes value = 1;
  int64 timestamp = 2;
- string signature = 3;
+ bytes signature = 3;
 }
 
 message JoinCTPSessionRequest {
