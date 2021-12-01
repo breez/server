@@ -567,10 +567,11 @@ func main() {
 		Key:       "routing_hints",
 		Value:     []byte("val"),
 		Signature: responpse.Signature,
+		Timestamp: timestamp,
 		Pubkey:    decodedPubkey,
 	})
 	if err != nil {
-		log.Fatalf("failed to set message")
+		log.Fatalf("failed to set message %v", err)
 	}
 
 	re, err := server.GetNodeInfo(context.Background(), &breez.GetNodeInfoRequest{
