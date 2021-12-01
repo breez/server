@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/breez/server/breez"
-	"github.com/lightningnetwork/lnd/lnrpc/signrpc"
-	"google.golang.org/grpc/metadata"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/lightningnetwork/lnd/lnwire"
 )
 
 var (
@@ -24,10 +24,41 @@ var (
 	maxRequesTimeDiff = time.Second * 10
 )
 
+func verifyMessage(msg, pubKey, signature []byte) (bool, error) {
+
+	if msg == nil {
+		return false, fmt.Errorf("a message to verify MUST be passed in")
+	}
+	if signature == nil {
+		return false, fmt.Errorf("a signature to verify MUST be passed in")
+	}
+	if pubKey == nil {
+		return false, fmt.Errorf("a pubkey to verify MUST be passed in")
+	}
+
+	pubkey, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	if err != nil {
+		return false, fmt.Errorf("unable to parse pubkey: %v", err)
+	}
+
+	// The signature must be fixed-size LN wire format encoded.
+	wireSig, err := lnwire.NewSigFromRawSignature(signature)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode signature: %v", err)
+	}
+	sig, err := wireSig.ToSignature()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert from wire format: %v", err)
+	}
+
+	// The signature is over the sha256 hash of the message.
+	digest := chainhash.HashB(msg)
+	valid := sig.Verify(digest, pubkey)
+	return valid, nil
+}
+
 // SetNodeInfo sets the meeting information by the meeting moderator. The moderator provides a proof by signing the value
 func (s *server) SetNodeInfo(ctx context.Context, in *breez.SetNodeInfoRequest) (*breez.SetNodeInfoResponse, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-
 	if _, ok := allowedKeys[in.Key]; !ok {
 		return nil, ErrKeyNotSupported
 	}
@@ -40,16 +71,12 @@ func (s *server) SetNodeInfo(ctx context.Context, in *breez.SetNodeInfoRequest) 
 	msg := fmt.Sprintf("%v-%v-%v", in.Key, hex.EncodeToString(in.Value), in.Timestamp)
 
 	// Verify the message
-	verificationResponse, err := signerClient.VerifyMessage(clientCtx, &signrpc.VerifyMessageReq{
-		Msg:       []byte(msg),
-		Pubkey:    in.Pubkey,
-		Signature: in.Signature,
-	})
+	valid, err := verifyMessage([]byte(msg), in.Pubkey, in.Signature)
 	if err != nil {
 		return nil, err
 	}
 
-	if !verificationResponse.Valid {
+	if !valid {
 		return nil, errors.New("failed to verify value")
 	}
 
