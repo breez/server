@@ -78,6 +78,20 @@ service PushTxNotifier {
 service InactiveNotifier {
   rpc InactiveNotify(InactiveNotifyRequest) returns (InactiveNotifyResponse) {}
 }
+
+service Signer {
+  rpc SignUrl(SignUrlRequest) returns (SignUrlResponse) {}
+}
+
+message SignUrlRequest {
+  string baseUrl = 1 [json_name = "base_url"];
+  string queryString = 2 [json_name = "query_string"];
+}
+
+message SignUrlResponse {
+  string fullUrl = 1 [json_name = "full_url"];
+}
+
 message InactiveNotifyRequest {
   bytes pubkey = 1 [json_name = "pubkey"];
   int32 days = 2 [json_name = "days"];

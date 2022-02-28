@@ -26,6 +26,7 @@ import (
 	"github.com/breez/server/captcha"
 	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
+	"github.com/breez/server/signer"
 	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
@@ -517,6 +518,9 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/SetNodeInfo", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 100000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 10, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 1000, 1000, 86400),
 		),
 	)
 
@@ -539,6 +543,7 @@ func main() {
 	breez.RegisterPushTxNotifierServer(s, &server{})
 	breez.RegisterInactiveNotifierServer(s, &server{})
 	breez.RegisterNodeInfoServer(s, &server{})
+	breez.RegisterSignerServer(s, &signer.Server{})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
