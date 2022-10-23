@@ -284,7 +284,7 @@ func (s *server) InactiveNotify(ctx context.Context, in *breez.InactiveNotifyReq
 	return &breez.InactiveNotifyResponse{}, nil
 }
 
-//JoinCTPSession is used by both payer/payee to join a CTP session.
+// JoinCTPSession is used by both payer/payee to join a CTP session.
 func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
 	sessionID, expiry, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
 	if err != nil {
@@ -451,7 +451,7 @@ func main() {
 
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
-			auth.UnaryAuth("/breez.ChannelOpener/", os.Getenv("LSP_TOKEN")),
+			auth.UnaryAuth("/breez.ChannelOpener/OpenLSPChannel", os.Getenv("LSP_TOKEN")),
 			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			captcha.UnaryCaptchaAuth("/breez.ChannelOpener/OpenLSPChannel", os.Getenv("CAPTCHA_CONFIG")),
