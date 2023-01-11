@@ -26,14 +26,16 @@ func GetProvider(ctx context.Context) *string {
 	return provider
 }
 
-func CheckLSPKey(ctx context.Context, apiKeys []string) bool {
+func CheckLSPKey(ctx context.Context, apiKeys map[string]string) bool {
 	if len(apiKeys) == 0 {
 		return true
 	}
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		for _, auth := range md.Get("authorization") {
-			for _, key := range apiKeys {
-				if auth == "Bearer "+key {
+			if strings.HasPrefix(auth, "Bearer ") {
+				k := auth[7:]
+				if name, ok := apiKeys[k]; ok {
+					log.Printf("authorized: %v with key: %v", name, k)
 					return true
 				}
 			}

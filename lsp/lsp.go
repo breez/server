@@ -31,6 +31,7 @@ type lspdLSP struct {
 	Server string
 	Token  string
 	NoTLS  bool
+	Keys   map[string]string `json:"keys,omitempty"`
 }
 
 // lnurlLSP represents the infos about a LSP using lnurl
@@ -42,7 +43,6 @@ type lnurlLSP struct {
 type lspConfig struct {
 	LspdList  map[string]lspdLSP  `json:"lspd,omitempty"`
 	LnurlList map[string]lnurlLSP `json:"lnurl,omitempty"`
-	LspKeys   map[string][]string `json:"lspkeys,omitempty"`
 }
 
 var (
@@ -102,7 +102,7 @@ func loadConfig(reader io.Reader) error {
 func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.LSPListReply, error) {
 	r := breez.LSPListReply{Lsps: make(map[string]*breez.LSPInformation)}
 	for id, c := range lspdClients {
-		if !auth.CheckLSPKey(ctx, lspConf.LspKeys[id]) {
+		if !auth.CheckLSPKey(ctx, lspConf.LspdList[id].Keys) {
 			continue
 		}
 		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspConf.LspdList[id].Token)
@@ -130,9 +130,6 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 		}
 	}
 	for id, c := range lspConf.LnurlList {
-		if !auth.CheckLSPKey(ctx, lspConf.LspKeys[id]) {
-			continue
-		}
 		r.Lsps[id] = &breez.LSPInformation{Name: c.Name, WidgetUrl: c.WidgetURL}
 	}
 	return &r, nil
@@ -180,13 +177,11 @@ func (s *Server) OpenPublicChannel(ctx context.Context, in *breez.OpenPublicChan
 
 // RegisterPayment sends information concerning a payment used by the LSP to open a channel
 func (s *Server) RegisterPayment(ctx context.Context, in *breez.RegisterPaymentRequest) (*breez.RegisterPaymentReply, error) {
-	if !auth.CheckLSPKey(ctx, lspConf.LspKeys[in.LspId]) {
+	lsp, ok := lspConf.LspdList[in.LspId]
+	if !ok || !auth.CheckLSPKey(ctx, lsp.Keys) {
 		return nil, status.Errorf(codes.PermissionDenied, "Not authorized")
 	}
-	lsp, ok := lspConf.LspdList[in.LspId]
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "Not found")
-	}
+
 	lspdClient, ok := lspdClients[in.LspId]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "Not found")
