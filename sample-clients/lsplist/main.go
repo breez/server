@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/breez/server/breez"
@@ -12,14 +13,12 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const (
-	lspToken = "1WL4gWZLZJ40qkXpeiUzJE7GCo4WhRXZXJbdhuP7GLg="
-)
-
 func main() {
 
 	//don't check for errors, we are not forcing env file.
 	godotenv.Load("sample-clients/.env")
+
+	token := os.Args[1]
 
 	conn, err := GetClientConnection()
 
@@ -29,7 +28,8 @@ func main() {
 	defer conn.Close()
 	c := breez.NewChannelOpenerClient(conn)
 	ctx, cancel := context.WithTimeout(
-		metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspToken),
+		metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token),
+
 		1*time.Second,
 	)
 	defer cancel()

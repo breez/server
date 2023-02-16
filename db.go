@@ -180,3 +180,36 @@ func getDeviceToken(nodeID []byte) (string, error) {
 	}
 	return token, nil
 }
+
+func lspList(apiKeys []string) ([]string, error) {
+	type void struct{}
+	var member void
+
+	rows, err := pgxPool.Query(context.Background(),
+		`SELECT lsp_ids, api_user FROM api_keys
+			WHERE api_key = ANY($1)`, apiKeys)
+	if err != nil {
+		log.Printf("error in pgxPool.Query: %v", err)
+		return nil, fmt.Errorf("error in pgxPool.Query: %w", err)
+	}
+	defer rows.Close()
+	lspSet := make(map[string]void)
+	for rows.Next() {
+		var lspIds []string
+		var apiUser string
+		err = rows.Scan(&lspIds, &apiUser)
+		if err != nil {
+			log.Printf("error in rows.Scan: %v", err)
+			continue
+		}
+		log.Printf("ids: %#v, user: %#v", lspIds, apiUser)
+		for _, l := range lspIds {
+			lspSet[l] = member
+		}
+	}
+	var lspList []string
+	for l := range lspSet {
+		lspList = append(lspList, l)
+	}
+	return lspList, nil
+}

@@ -529,6 +529,7 @@ func main() {
 
 	lspServer := &lsp.Server{
 		EmailNotifier: sendOpenChannelNotification,
+		DBLSPList:     lspList,
 	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPublicChannelOpenerServer(s, lspServer)

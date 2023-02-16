@@ -26,23 +26,18 @@ func GetProvider(ctx context.Context) *string {
 	return provider
 }
 
-func CheckLSPKey(ctx context.Context, apiKeys map[string]string) bool {
-	if len(apiKeys) == 0 {
-		return true
-	}
+func GetHeaderKeys(ctx context.Context) []string {
+	var keys []string
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		for _, auth := range md.Get("authorization") {
 			if strings.HasPrefix(auth, "Bearer ") {
-				k := auth[7:]
-				if name, ok := apiKeys[k]; ok {
-					log.Printf("authorized: %v with key: %v", name, k)
-					return true
+				if len(auth) > 7 {
+					keys = append(keys, auth[7:])
 				}
 			}
 		}
 	}
-
-	return false
+	return keys
 }
 
 func UnaryAuth(prefix, token string) grpc.UnaryServerInterceptor {
