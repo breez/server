@@ -33,6 +33,7 @@ const (
 
 // Server implements lsp grpc functions
 type Server struct {
+	breez.UnimplementedSwapperServer
 	network              *chaincfg.Params
 	redisPool            *redis.Pool
 	client               lnrpc.LightningClient
@@ -54,8 +55,17 @@ func NewServer(
 	insertSubswapPayment func(paymentHash, paymentRequest string) error,
 	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error,
 ) *Server {
-	return &Server{network, redisPool, client, ssClient, subswapClient, walletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPayment}
+	return &Server{
+		network:              network,
+		redisPool:            redisPool,
+		client:               client,
+		ssClient:             ssClient,
+		subswapClient:        subswapClient,
+		walletKitClient:      walletKitClient,
+		ssRouterClient:       ssRouterClient,
+		insertSubswapPayment: insertSubswapPayment,
+		updateSubswapPayment: updateSubswapPayment,
+	}
 }
 
 func (s *Server) AddFundInitLegacy(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
@@ -314,7 +324,7 @@ func (s *Server) RedeemSwapPayment(ctx context.Context, in *breez.RedeemSwapPaym
 	return &breez.RedeemSwapPaymentReply{Txid: redeem.Txid}, nil
 }
 
-//Calculate the max allowed deposit for a node
+// Calculate the max allowed deposit for a node
 func (s *Server) getMaxAllowedDeposit(nodeID string, max int64) (int64, error) {
 	log.Println("getMaxAllowedDeposit node ID: ", nodeID)
 	nodeChannels, err := s.getNodeChannels(nodeID)

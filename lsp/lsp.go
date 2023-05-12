@@ -10,9 +10,9 @@ import (
 	"log"
 	"os"
 
-	lspdrpc "github.com/breez/lspd/rpc"
 	"github.com/breez/server/auth"
 	"github.com/breez/server/breez"
+	lspdrpc "github.com/breez/server/lsp/rpc"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -23,6 +23,8 @@ import (
 
 // Server implements lsp grpc functions
 type Server struct {
+	breez.UnimplementedChannelOpenerServer
+	breez.UnimplementedPublicChannelOpenerServer
 	EmailNotifier func(provider, nid, txid string, index uint32) error
 	DBLSPList     func(keys []string) ([]string, error)
 }
@@ -118,6 +120,17 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
 		} else {
 			log.Printf("ChannelInformation: %#v", ci)
+			var menu []*breez.OpeningFeeParams
+			for _, params := range ci.OpeningFeeParamsMenu {
+				menu = append(menu, &breez.OpeningFeeParams{
+					MinMsat:              params.MinMsat,
+					Proportional:         params.Proportional,
+					ValidUntil:           params.ValidUntil,
+					MaxIdleTime:          params.MaxIdleTime,
+					MaxClientToSelfDelay: params.MaxClientToSelfDelay,
+					Promise:              params.Promise,
+				})
+			}
 			li := &breez.LSPInformation{
 				Name:                  ci.Name,
 				Pubkey:                ci.Pubkey,
@@ -132,6 +145,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 				ChannelMinimumFeeMsat: ci.ChannelMinimumFeeMsat,
 				LspPubkey:             ci.LspPubkey,
 				MaxInactiveDuration:   ci.MaxInactiveDuration,
+				OpeningFeeParamsMenu:  menu,
 			}
 			r.Lsps[id] = li
 		}

@@ -67,7 +67,18 @@ var openChannelReqGroup singleflight.Group
 var swapperServer *swapper.Server
 
 // server is used to implement breez.InvoicerServer and breez.PosServer
-type server struct{}
+type server struct {
+	breez.UnimplementedInvoicerServer
+	breez.UnimplementedPosServer
+	breez.UnimplementedInformationServer
+	breez.UnimplementedCardOrdererServer
+	breez.UnimplementedFundManagerServer
+	breez.UnimplementedCTPServer
+	breez.UnimplementedSyncNotifierServer
+	breez.UnimplementedPushTxNotifierServer
+	breez.UnimplementedInactiveNotifierServer
+	breez.UnimplementedNodeInfoServer
+}
 
 // RegisterDevice implements breez.InvoicerServer
 func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) (*breez.RegisterReply, error) {

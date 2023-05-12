@@ -13,6 +13,7 @@ import (
 )
 
 type Server struct {
+	breez.UnimplementedSignerServer
 }
 
 func (s *Server) SignUrl(ctx context.Context, in *breez.SignUrlRequest) (*breez.SignUrlResponse, error) {

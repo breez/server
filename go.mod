@@ -11,7 +11,6 @@ require (
 	github.com/SparkPost/gosparkpost v0.0.0-20180607155248-1190f471ed9d // indirect
 	github.com/aws/aws-sdk-go v1.30.20
 	github.com/breez/boltz v0.0.0-20200114203444-0c01ddb93028
-	github.com/breez/lspd v0.0.0-20210616153301-b86a77ab6925
 	github.com/btcsuite/btcd v0.21.0-beta.0.20201208033208-6bd4c64a54fa
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/btcsuite/go-flags v0.0.0-20150116065318-6c288d648c1c // indirect
@@ -37,7 +36,7 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.3
 	google.golang.org/api v0.29.0
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
 )
 
