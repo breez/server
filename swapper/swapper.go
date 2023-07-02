@@ -244,6 +244,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 
 	// Determine if the amount in payment request is the same as in the address UTXOs
 	if utxos.Amount != decodedAmt {
+		log.Printf("GetSwapPayment error - utxos.Amount: %v != decodedAmt: %v", utxos.Amount, decodedAmt)
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
 			SwapError:          breez.GetSwapPaymentReply_INVOICE_AMOUNT_MISMATCH,
@@ -260,6 +261,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 	}
 
 	if 4*(int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight) > 3*utxos.LockHeight {
+		log.Printf("Client transaction height: %v older than redeem block treshold", utxos.Utxos[0].BlockHeight)
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
 			SwapError:          breez.GetSwapPaymentReply_SWAP_EXPIRED,
