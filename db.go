@@ -181,6 +181,18 @@ func getDeviceToken(nodeID []byte) (string, error) {
 	return token, nil
 }
 
+func hasFilteredAddress(addrs []string) (bool, error) {
+	var count int
+	err := pgxPool.QueryRow(context.Background(),
+		`SELECT count(*)
+		  FROM filtered_addresses
+		  WHERE address = ANY ($1)`, addrs).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func lspList(apiKeys []string) ([]string, error) {
 	type void struct{}
 	var member void

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/breez/server/bitcoind"
 	"github.com/breez/server/breez"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/gomodule/redigo/redis"
@@ -43,6 +44,7 @@ type Server struct {
 	ssRouterClient       routerrpc.RouterClient
 	insertSubswapPayment func(paymentHash, paymentRequest string) error
 	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error
+	hasFilteredAddress   func(addrs []string) (bool, error)
 }
 
 func NewServer(
@@ -54,6 +56,7 @@ func NewServer(
 	ssRouterClient routerrpc.RouterClient,
 	insertSubswapPayment func(paymentHash, paymentRequest string) error,
 	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error,
+	hasFilteredAddress func(addrs []string) (bool, error),
 ) *Server {
 	return &Server{
 		network:              network,
@@ -65,6 +68,7 @@ func NewServer(
 		ssRouterClient:       ssRouterClient,
 		insertSubswapPayment: insertSubswapPayment,
 		updateSubswapPayment: updateSubswapPayment,
+		hasFilteredAddress:   hasFilteredAddress,
 	}
 }
 
@@ -267,6 +271,16 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 			SwapError:          breez.GetSwapPaymentReply_SWAP_EXPIRED,
 			PaymentError:       "client transaction older than redeem block treshold",
 		}, nil
+	}
+	txids := []string{}
+	for _, u := range utxos.Utxos {
+		txids = append(txids, u.Txid)
+	}
+	addrs, _ := bitcoind.GetSenderAddresses(txids)
+	hasFiltered, _ := s.hasFilteredAddress(addrs)
+	if hasFiltered {
+		log.Printf("GetSwapPayment - hasSanc")
+		return nil, status.Errorf(codes.Internal, "fa internal error")
 	}
 
 	err = s.insertSubswapPayment(hex.EncodeToString(decodedPayReq.PaymentHash[:]), in.PaymentRequest)

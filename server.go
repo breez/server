@@ -535,7 +535,7 @@ func main() {
 	)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPayment)
+		insertSubswapPayment, updateSubswapPayment, hasFilteredAddress)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{
