@@ -11,8 +11,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/google/uuid"
 	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -37,9 +37,9 @@ var (
 
 func pgConnect() error {
 	var err error
-	pgxPool, err = pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	pgxPool, err = pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return fmt.Errorf("pgxpool.Connect(%v): %w", os.Getenv("DATABASE_URL"), err)
+		return fmt.Errorf("pgxpool.New(%v): %w", os.Getenv("DATABASE_URL"), err)
 	}
 	return nil
 }

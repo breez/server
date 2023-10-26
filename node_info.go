@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/breez/server/breez"
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/lightningnetwork/lnd/lnwire"
 )
@@ -36,7 +36,7 @@ func verifyMessage(msg, pubKey, signature []byte) (bool, error) {
 		return false, fmt.Errorf("a pubkey to verify MUST be passed in")
 	}
 
-	pubkey, err := btcec.ParsePubKey(pubKey, btcec.S256())
+	pubkey, err := btcec.ParsePubKey(pubKey)
 	if err != nil {
 		return false, fmt.Errorf("unable to parse pubkey: %v", err)
 	}
