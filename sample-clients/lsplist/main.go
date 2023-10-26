@@ -39,5 +39,9 @@ func main() {
 	}
 	for id, info := range r.Lsps {
 		fmt.Printf("%s: %#v\n", id, info)
+		fmt.Println("OpeningFeeParamsMenu")
+		for _, m := range info.OpeningFeeParamsMenu {
+			fmt.Printf("%#v\n", m)
+		}
 	}
 }
