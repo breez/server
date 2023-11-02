@@ -80,6 +80,10 @@ service InactiveNotifier {
   rpc InactiveNotify(InactiveNotifyRequest) returns (InactiveNotifyResponse) {}
 }
 
+service PaymentNotifier {
+  rpc RegisterPaymentNotification(RegisterPaymentNotificationRequest) returns (RegisterPaymentNotificationResponse) {}
+}
+
 service Signer {
   rpc SignUrl(SignUrlRequest) returns (SignUrlResponse) {}
 }
@@ -98,6 +102,15 @@ message InactiveNotifyRequest {
   int32 days = 2 [json_name = "days"];
 }
 message InactiveNotifyResponse {}
+
+message RegisterPaymentNotificationRequest {
+  string url = 1;
+  bytes signature = 2;
+  string lsp_id = 3;
+}
+
+message RegisterPaymentNotificationResponse {
+}
 
 message ReceiverInfoRequest{}
 message ReceiverInfoReply {

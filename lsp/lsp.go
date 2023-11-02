@@ -25,6 +25,7 @@ import (
 type Server struct {
 	breez.UnimplementedChannelOpenerServer
 	breez.UnimplementedPublicChannelOpenerServer
+	breez.UnimplementedPaymentNotifierServer
 	EmailNotifier func(provider, nid, txid string, index uint32) error
 	DBLSPList     func(keys []string) ([]string, error)
 }
@@ -47,9 +48,14 @@ type lspConfig struct {
 	LnurlList map[string]lnurlLSP `json:"lnurl,omitempty"`
 }
 
+type lspdClient struct {
+	channelOpenerClient lspdrpc.ChannelOpenerClient
+	notificationClient  lspdrpc.NotificationsClient
+}
+
 var (
 	lspConf     lspConfig
-	lspdClients map[string]lspdrpc.ChannelOpenerClient
+	lspdClients map[string]*lspdClient
 )
 
 // InitLSP initialize lsp configuration and connections
@@ -64,7 +70,7 @@ func InitLSP() error {
 		return errors.Wrapf(err, "Error getting SystemCertPool in InitLSP")
 	}
 	creds := credentials.NewClientTLSFromCert(systemCertPool, "")
-	lspdClients = make(map[string]lspdrpc.ChannelOpenerClient, len(lspConf.LspdList))
+	lspdClients = make(map[string]*lspdClient, len(lspConf.LspdList))
 	for id, LSP := range lspConf.LspdList {
 		log.Printf("LSP id: %v; server: %v; token: %v", id, LSP.Server, LSP.Token)
 		if LSP.Server != "" {
@@ -78,7 +84,10 @@ func InitLSP() error {
 			if err != nil {
 				log.Printf("Failed to connect to server gRPC: %v", err)
 			} else {
-				lspdClients[id] = lspdrpc.NewChannelOpenerClient(conn)
+				lspdClients[id] = &lspdClient{
+					channelOpenerClient: lspdrpc.NewChannelOpenerClient(conn),
+					notificationClient:  lspdrpc.NewNotificationsClient(conn),
+				}
 			}
 		}
 	}
@@ -115,7 +124,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 			continue
 		}
 		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspConf.LspdList[id].Token)
-		ci, err := c.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.Pubkey})
+		ci, err := c.channelOpenerClient.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.Pubkey})
 		if err != nil {
 			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
 		} else {
@@ -185,7 +194,7 @@ func (s *Server) OpenPublicChannel(ctx context.Context, in *breez.OpenPublicChan
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	r, err := lspdClient.OpenChannel(clientCtx, &lspdrpc.OpenChannelRequest{Pubkey: in.Pubkey})
+	r, err := lspdClient.channelOpenerClient.OpenChannel(clientCtx, &lspdrpc.OpenChannelRequest{Pubkey: in.Pubkey})
 	log.Printf("lspdClient.OpenChannel(%v): %#v err: %#v", in.Pubkey, r, err)
 	if err != nil {
 		return nil, err // Log and returns another error.
@@ -227,7 +236,7 @@ func (s *Server) RegisterPayment(ctx context.Context, in *breez.RegisterPaymentR
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	_, err = lspdClient.RegisterPayment(clientCtx, &lspdrpc.RegisterPaymentRequest{Blob: in.Blob})
+	_, err = lspdClient.channelOpenerClient.RegisterPayment(clientCtx, &lspdrpc.RegisterPaymentRequest{Blob: in.Blob})
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +254,32 @@ func (s *Server) CheckChannels(ctx context.Context, in *breez.CheckChannelsReque
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	reply, err := lspdClient.CheckChannels(clientCtx, &lspdrpc.Encrypted{Data: in.Blob})
+	reply, err := lspdClient.channelOpenerClient.CheckChannels(clientCtx, &lspdrpc.Encrypted{Data: in.Blob})
 	if err != nil {
 		return nil, err
 	}
 	return &breez.CheckChannelsReply{Blob: reply.Data}, nil
+}
+
+func (s *Server) RegisterPaymentNotification(
+	ctx context.Context,
+	in *breez.RegisterPaymentNotificationRequest,
+) (*breez.RegisterPaymentNotificationResponse, error) {
+	lsp, ok := lspConf.LspdList[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspdClient, ok := lspdClients[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
+	_, err := lspdClient.notificationClient.SubscribeNotifications(clientCtx, &lspdrpc.SubscribeNotificationsRequest{
+		Url:       in.Url,
+		Signature: in.Signature,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &breez.RegisterPaymentNotificationResponse{}, nil
 }
