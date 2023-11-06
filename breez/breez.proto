@@ -104,9 +104,8 @@ message InactiveNotifyRequest {
 message InactiveNotifyResponse {}
 
 message RegisterPaymentNotificationRequest {
-  string url = 1;
-  bytes signature = 2;
-  string lsp_id = 3;
+  string lsp_id = 1;
+  bytes blob = 2;
 }
 
 message RegisterPaymentNotificationResponse {

@@ -274,9 +274,8 @@ func (s *Server) RegisterPaymentNotification(
 		return nil, status.Errorf(codes.NotFound, "Not found")
 	}
 	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
-	_, err := lspdClient.notificationClient.SubscribeNotifications(clientCtx, &lspdrpc.SubscribeNotificationsRequest{
-		Url:       in.Url,
-		Signature: in.Signature,
+	_, err := lspdClient.notificationClient.SubscribeNotifications(clientCtx, &lspdrpc.EncryptedNotificationRequest{
+		Blob: in.Blob,
 	})
 	if err != nil {
 		return nil, err
