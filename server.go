@@ -544,6 +544,7 @@ func main() {
 	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPublicChannelOpenerServer(s, lspServer)
+	breez.RegisterPaymentNotifierServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})
 	breez.RegisterInformationServer(s, &server{})
