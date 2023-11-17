@@ -27,6 +27,7 @@ import (
 	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
 	"github.com/breez/server/signer"
+	"github.com/breez/server/support"
 	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -531,8 +532,14 @@ func main() {
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 1000, 1000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 10, 20, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 100, 10000, 86400),
 		),
 	)
+
+	supportServer := support.NewServer(sendPaymentFailureNotification)
+	breez.RegisterSupportServer(s, supportServer)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,
 		insertSubswapPayment, updateSubswapPayment, hasFilteredAddress)

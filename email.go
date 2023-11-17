@@ -150,3 +150,38 @@ func sendOpenChannelNotification(provider, nid, txid string, index uint32) error
 
 	return nil
 }
+
+func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error {
+	var html bytes.Buffer
+
+	tpl := `
+	<div>NodeId: {{ .node_id }}</div>
+	<div>APIKeyHash: {{ .api_key_hash }}</div>
+	<div>Timestamp: {{ .timestamp }}</div>
+	<div>Comment/error: {{ .comment }}</div>
+	<div>Report:</div>
+	<div>{{ .report }}</div>
+	`
+	t, err := template.New("PaymentFailureEmail").Parse(tpl)
+	if err != nil {
+		return err
+	}
+
+	if err := t.Execute(&html, in); err != nil {
+		return err
+	}
+
+	err = sendEmail(
+		os.Getenv("PAYMENT_FAILURE_NOTIFICATION_TO"),
+		os.Getenv("PAYMENT_FAILURE_NOTIFICATION_CC"),
+		os.Getenv("PAYMENT_FAILURE_NOTIFICATION_FROM"),
+		html.String(),
+		"Payment Failure",
+	)
+	if err != nil {
+		log.Printf("Error sending payment failure email: %v", err)
+		return err
+	}
+
+	return nil
+}
