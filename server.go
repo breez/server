@@ -1,7 +1,7 @@
 package main
 
 // To generate breez/breez.pb.go run:
-// protoc -I breez breez/breez.proto --go_out=plugins=grpc:breez
+// protoc -I breez --go_out=./breez/ --go_opt=paths=source_relative  --go-grpc_out=./breez/ --go-grpc_opt=paths=source_relative breez/breez.proto
 
 import (
 	"bytes"
@@ -535,10 +535,12 @@ func main() {
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 10, 20, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 100, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 1000, 10000, 86400),
 		),
 	)
 
-	supportServer := support.NewServer(sendPaymentFailureNotification)
+	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus)
 	breez.RegisterSupportServer(s, supportServer)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,

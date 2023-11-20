@@ -151,6 +151,17 @@ func breezAppVersion() (pgx.Rows, error) {
 	)
 }
 
+func breezStatus() (string, error) {
+	var statusCode string
+	err := pgxPool.QueryRow(context.Background(),
+		`SELECT value->'code' as status
+		FROM breez_info
+		WHERE "key"='status'
+		ORDER by "timestamp" DESC
+		LIMIT 1`).Scan(&statusCode)
+	return statusCode, err
+}
+
 func deviceNode(nodeID []byte, deviceID string) error {
 	commandTag, err := pgxPool.Exec(context.Background(),
 		`INSERT INTO deviceid_nodeid
