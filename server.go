@@ -540,7 +540,7 @@ func main() {
 		),
 	)
 
-	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus)
+	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspList)
 	breez.RegisterSupportServer(s, supportServer)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,

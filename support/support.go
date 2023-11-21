@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/breez/server/auth"
 	breezrpc "github.com/breez/server/breez"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Server implements support grpc functions
@@ -14,17 +17,23 @@ type Server struct {
 	breezrpc.UnimplementedSupportServer
 	emailNotifier func(in *breezrpc.ReportPaymentFailureRequest) error
 	getStatus     func() (string, error)
+	DBLSPList     func(keys []string) ([]string, error)
 }
 
 func NewServer(emailNotifier func(in *breezrpc.ReportPaymentFailureRequest) error,
-	getStatus func() (string, error)) *Server {
+	getStatus func() (string, error),
+	DBLSPList func(keys []string) ([]string, error)) *Server {
 	return &Server{
 		emailNotifier: emailNotifier,
 		getStatus:     getStatus,
+		DBLSPList:     DBLSPList,
 	}
 }
 
 func (s *Server) ReportPaymentFailure(ctx context.Context, in *breezrpc.ReportPaymentFailureRequest) (*breezrpc.ReportPaymentFailureReply, error) {
+	if err := s.validateRequest(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.emailNotifier(in); err != nil {
 		return nil, errors.New("failed to report payment failure")
 	}
@@ -32,12 +41,29 @@ func (s *Server) ReportPaymentFailure(ctx context.Context, in *breezrpc.ReportPa
 }
 
 func (s *Server) BreezStatus(ctx context.Context, in *breezrpc.BreezStatusRequest) (*breezrpc.BreezStatusReply, error) {
+	if err := s.validateRequest(ctx); err != nil {
+		return nil, err
+	}
 	status, err := s.getStatus()
 	if err != nil {
 		log.Printf("s.getStatus() error: %v", err)
-		return nil, fmt.Errorf("breezstatus eror")
+		return nil, fmt.Errorf("breezstatus error")
 	}
 	return &breezrpc.BreezStatusReply{
 		Status: breezrpc.BreezStatusReply_BreezStatus(breezrpc.BreezStatusReply_BreezStatus_value[status]),
 	}, nil
+}
+
+func (s *Server) validateRequest(ctx context.Context) error {
+	keys := auth.GetHeaderKeys(ctx)
+	list, err := s.DBLSPList(keys)
+	if err != nil {
+		log.Printf("Error in DBLSPList(%#v): %v", keys, err)
+		return status.Errorf(codes.PermissionDenied, "Not authorized")
+	}
+	if len(list) == 0 {
+		log.Printf("No lsps found: %#v", keys)
+		return status.Errorf(codes.PermissionDenied, "Not authorized")
+	}
+	return nil
 }
