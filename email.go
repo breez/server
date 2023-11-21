@@ -156,7 +156,6 @@ func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error
 
 	tpl := `
 	<div>NodeId: {{ .node_id }}</div>
-	<div>APIKeyHash: {{ .api_key_hash }}</div>
 	<div>Timestamp: {{ .timestamp }}</div>
 	<div>Comment/error: {{ .comment }}</div>
 	<div>Report:</div>
