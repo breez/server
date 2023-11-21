@@ -155,18 +155,20 @@ func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error
 	var html bytes.Buffer
 
 	tpl := `
-	<div>NodeId: {{ .node_id }}</div>
-	<div>Timestamp: {{ .timestamp }}</div>
-	<div>Comment/error: {{ .comment }}</div>
+	<div>NodeId: {{ .NodeId }}</div>
+	<div>Timestamp: {{ .Timestamp }}</div>
+	<div>Comment/error: {{ .Comment }}</div>
 	<div>Report:</div>
-	<div>{{ .report }}</div>
+	<div>{{ .Report }}</div>
 	`
 	t, err := template.New("PaymentFailureEmail").Parse(tpl)
 	if err != nil {
+		log.Printf("Error parsing HTML template: %v", err)
 		return err
 	}
 
 	if err := t.Execute(&html, in); err != nil {
+		log.Printf("Error applying data to template: %v", err)
 		return err
 	}
 
