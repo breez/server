@@ -155,7 +155,10 @@ func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error
 	var html bytes.Buffer
 
 	tpl := `
+	<div>SdkVersion: {{ .SdkVersion }}</div>
+	<div>SdkGitHash: {{ .SdkGitHash }}</div>
 	<div>NodeId: {{ .NodeId }}</div>
+	<div>LspId: {{ .LspId }}</div>
 	<div>Timestamp: {{ .Timestamp }}</div>
 	<div>Comment/error: {{ .Comment }}</div>
 	<div>Report:</div>
