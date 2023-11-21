@@ -457,14 +457,20 @@ message GetReverseRoutingNodeReply {
 }
 
 message ReportPaymentFailureRequest {
+  // The sdk build version
+  string sdk_version = 1;
+  // The sdk build git hash
+  string sdk_git_hash = 2;
   // The node pubkey reporting the failure
-  string node_id = 1;
+  string node_id = 3;
+  // The currently used lsp id
+  string lsp_id = 4;
   // The ISO 8601 timestamp 
-  string timestamp = 2;
+  string timestamp = 5;
   // The optional comment/error response text
-  string comment = 3;
+  string comment = 6;
   // The JSON encoded report payload
-  string report = 4;
+  string report = 7;
 }
 message ReportPaymentFailureReply {}
 
