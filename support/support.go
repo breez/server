@@ -49,6 +49,7 @@ func (s *Server) BreezStatus(ctx context.Context, in *breezrpc.BreezStatusReques
 		log.Printf("s.getStatus() error: %v", err)
 		return nil, fmt.Errorf("breezstatus error")
 	}
+	log.Printf("BreezStatus: %v", status)
 	return &breezrpc.BreezStatusReply{
 		Status: breezrpc.BreezStatusReply_BreezStatus(breezrpc.BreezStatusReply_BreezStatus_value[status]),
 	}, nil
