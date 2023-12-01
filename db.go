@@ -154,7 +154,7 @@ func breezAppVersion() (pgx.Rows, error) {
 func breezStatus() (string, error) {
 	var statusCode string
 	err := pgxPool.QueryRow(context.Background(),
-		`SELECT value->'code' as status
+		`SELECT value->>'code' as status
 		FROM breez_info
 		WHERE "key"='status'
 		ORDER by "timestamp" DESC
