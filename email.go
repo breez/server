@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -151,7 +152,7 @@ func sendOpenChannelNotification(provider, nid, txid string, index uint32) error
 	return nil
 }
 
-func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error {
+func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest, keys []string) error {
 	var html bytes.Buffer
 
 	tpl := `
@@ -159,6 +160,7 @@ func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error
 	<div>SdkGitHash: {{ .SdkGitHash }}</div>
 	<div>NodeId: {{ .NodeId }}</div>
 	<div>LspId: {{ .LspId }}</div>
+	<div>ApiKey: {{ .ApiKey }}</div>
 	<div>Timestamp: {{ .Timestamp }}</div>
 	<div>Comment/error: {{ .Comment }}</div>
 	<div>Report:</div>
@@ -170,7 +172,18 @@ func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest) error
 		return err
 	}
 
-	if err := t.Execute(&html, in); err != nil {
+	data := map[string]string{
+		"ApiKey":     strings.Join(keys, ", "),
+		"Comment":    in.Comment,
+		"LspId":      in.LspId,
+		"NodeId":     in.NodeId,
+		"Report":     in.Report,
+		"SdkGitHash": in.SdkGitHash,
+		"SdkVersion": in.SdkVersion,
+		"Timestamp":  in.Timestamp,
+	}
+
+	if err := t.Execute(&html, data); err != nil {
 		log.Printf("Error applying data to template: %v", err)
 		return err
 	}

@@ -15,12 +15,12 @@ import (
 // Server implements support grpc functions
 type Server struct {
 	breezrpc.UnimplementedSupportServer
-	emailNotifier func(in *breezrpc.ReportPaymentFailureRequest) error
+	emailNotifier func(in *breezrpc.ReportPaymentFailureRequest, keys []string) error
 	getStatus     func() (string, error)
 	DBLSPList     func(keys []string) ([]string, error)
 }
 
-func NewServer(emailNotifier func(in *breezrpc.ReportPaymentFailureRequest) error,
+func NewServer(emailNotifier func(in *breezrpc.ReportPaymentFailureRequest, keys []string) error,
 	getStatus func() (string, error),
 	DBLSPList func(keys []string) ([]string, error)) *Server {
 	return &Server{
@@ -31,17 +31,18 @@ func NewServer(emailNotifier func(in *breezrpc.ReportPaymentFailureRequest) erro
 }
 
 func (s *Server) ReportPaymentFailure(ctx context.Context, in *breezrpc.ReportPaymentFailureRequest) (*breezrpc.ReportPaymentFailureReply, error) {
-	if err := s.validateRequest(ctx); err != nil {
+	keys, err := s.validateRequest(ctx)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.emailNotifier(in); err != nil {
+	if err := s.emailNotifier(in, keys); err != nil {
 		return nil, errors.New("failed to report payment failure")
 	}
 	return &breezrpc.ReportPaymentFailureReply{}, nil
 }
 
 func (s *Server) BreezStatus(ctx context.Context, in *breezrpc.BreezStatusRequest) (*breezrpc.BreezStatusReply, error) {
-	if err := s.validateRequest(ctx); err != nil {
+	if _, err := s.validateRequest(ctx); err != nil {
 		return nil, err
 	}
 	status, err := s.getStatus()
@@ -55,16 +56,16 @@ func (s *Server) BreezStatus(ctx context.Context, in *breezrpc.BreezStatusReques
 	}, nil
 }
 
-func (s *Server) validateRequest(ctx context.Context) error {
+func (s *Server) validateRequest(ctx context.Context) ([]string, error) {
 	keys := auth.GetHeaderKeys(ctx)
 	list, err := s.DBLSPList(keys)
 	if err != nil {
 		log.Printf("Error in DBLSPList(%#v): %v", keys, err)
-		return status.Errorf(codes.PermissionDenied, "Not authorized")
+		return []string{}, status.Errorf(codes.PermissionDenied, "Not authorized")
 	}
 	if len(list) == 0 {
 		log.Printf("No lsps found: %#v", keys)
-		return status.Errorf(codes.PermissionDenied, "Not authorized")
+		return []string{}, status.Errorf(codes.PermissionDenied, "Not authorized")
 	}
-	return nil
+	return keys, nil
 }
