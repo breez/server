@@ -85,8 +85,6 @@ github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4 h1:8mdW/G5bEJbTjaQ9cbs
 github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4/go.mod h1:dG529kzhIfB2W9PWFRo7/mldB3m+M1TTHgPZcAfQj2Y=
 github.com/breez/lnd v0.15.0-beta.rc6.0.20230902183744-9e3f322824f5 h1:gKBs4GTU0PrBYaFeiZfClewnKrFet+6gkREmhdksS10=
 github.com/breez/lnd v0.15.0-beta.rc6.0.20230902183744-9e3f322824f5/go.mod h1:l04L2mp9cltG6sTCFjiMtKaMSTGK5Z1wIhohffsOmr8=
-github.com/breez/lspd v0.0.0-20231018093410-5ea4be093d03 h1:xi6JGMg99mznD2hXi8u3Twyb5MQd0/cqQ0/4NbQbGwI=
-github.com/breez/lspd v0.0.0-20231018093410-5ea4be093d03/go.mod h1:8sdQmNLCYm4AR6rRI0V9BESeTDBtjOy5zg2/WG6Lz58=
 github.com/btcsuite/btcd v0.0.0-20190824003749-130ea5bddde3/go.mod h1:3J08xEfcugPacsc34/LKRU2yO7YmuT8yt28J8k2+rrI=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.22.0-beta.0.20220111032746-97732e52810c/go.mod h1:tjmYdS6MLJ5/s0Fj4DbLgSbDHbEqLJrtnHecBFkdz5M=
@@ -844,8 +842,8 @@ golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5y
 golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/crypto v0.1.0/go.mod h1:RecgLatLF4+eUMCP1PoPZQb+cVrJcOPbHkTkbkB9sbw=
 golang.org/x/crypto v0.7.0/go.mod h1:pYwdfH91IfpZVANVyUOhSIPZaFoJGxTFbZhFTx+dXZU=
-golang.org/x/crypto v0.16.0 h1:mMMrFzRSCF0GvB7Ne27XVtVAaXLrPmgPC7/v0tkwHaY=
-golang.org/x/crypto v0.16.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
+golang.org/x/crypto v0.17.0 h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=
+golang.org/x/crypto v0.17.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522/go.mod h1:ZjyILWgesfNpC6sMxTJOJm9Kp84zZh5NQWvqDGG3Qr8=
