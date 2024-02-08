@@ -34,11 +34,9 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
-	"github.com/lightningnetwork/lnd/lnrpc/signrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 
-	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -57,12 +55,10 @@ const (
 
 var client, ssClient lnrpc.LightningClient
 var subswapClient submarineswaprpc.SubmarineSwapperClient
-var signerClient signrpc.SignerClient
 var walletKitClient, ssWalletKitClient walletrpc.WalletKitClient
 var chainNotifierClient chainrpc.ChainNotifierClient
 var ssRouterClient routerrpc.RouterClient
 var network *chaincfg.Params
-var openChannelReqGroup singleflight.Group
 
 var swapperServer *swapper.Server
 
@@ -208,10 +204,6 @@ func (s *server) UpdateChannelPolicy(ctx context.Context, in *breez.UpdateChanne
 	return &breez.UpdateChannelPolicyReply{}, nil
 }
 
-func (s *server) OpenChannel(ctx context.Context, in *breez.OpenChannelRequest) (*breez.OpenChannelReply, error) {
-	return nil, fmt.Errorf("disabled")
-}
-
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
 	return swapperServer.AddFundInitLegacy(ctx, in)
 }
@@ -352,21 +344,6 @@ func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 	return nodeChannels, nil
 }
 
-func getPendingNodeChannels(nodeID string) ([]*lnrpc.PendingChannelsResponse_PendingOpenChannel, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	pendingResponse, err := client.PendingChannels(clientCtx, &lnrpc.PendingChannelsRequest{})
-	if err != nil {
-		return nil, err
-	}
-	var pendingChannels []*lnrpc.PendingChannelsResponse_PendingOpenChannel
-	for _, p := range pendingResponse.PendingOpenChannels {
-		if p.Channel.RemoteNodePub == nodeID {
-			pendingChannels = append(pendingChannels, p)
-		}
-	}
-	return pendingChannels, nil
-}
-
 func main() {
 
 	switch os.Getenv("NETWORK") {
@@ -414,7 +391,6 @@ func main() {
 	}
 	defer conn.Close()
 	client = lnrpc.NewLightningClient(conn)
-	signerClient = signrpc.NewSignerClient(conn)
 	walletKitClient = walletrpc.NewWalletKitClient(conn)
 	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
 
@@ -480,8 +456,6 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Rates", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 10000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 100000, 10000000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 5, 10, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/OpenChannel", 500, 1000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 1000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 100000, 1000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundInit", 20, 200, 86400),
@@ -512,13 +486,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 10, 10000, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/OpenLSPChannel", 1000, 1000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 1000, 1000, 86400),
-
-			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 10, 10000, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/PublicChannelOpener/OpenPublicChannel", 1000, 1000, 86400),
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez/InactiveNotifier/InactiveNotify", 1000, 1000, 86400),
@@ -546,11 +515,9 @@ func main() {
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{
-		EmailNotifier: sendOpenChannelNotification,
-		DBLSPList:     lspList,
+		DBLSPList: lspList,
 	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
-	breez.RegisterPublicChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})

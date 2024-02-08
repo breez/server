@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -111,41 +110,6 @@ func sendCardOrderNotification(in *breez.OrderRequest) error {
 	)
 	if err != nil {
 		log.Printf("Error sending order card email: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func sendOpenChannelNotification(provider, nid, txid string, index uint32) error {
-
-	channelID := txid + ":" + strconv.FormatUint(uint64(index), 10)
-
-	var html bytes.Buffer
-
-	tpl := `
-	<div>Provider: {{ .Provider }}</div>
-	<div>NodeId: {{ .NodeID }}</div>
-	<div>Channel: {{ .ChannelID }}</div>
-	`
-	t, err := template.New("OpenChannelEmail").Parse(tpl)
-	if err != nil {
-		return err
-	}
-
-	if err := t.Execute(&html, map[string]string{"Provider": provider, "NodeID": nid, "ChannelID": channelID}); err != nil {
-		return err
-	}
-
-	err = sendEmail(
-		os.Getenv("OPENCHANNEL_NOTIFICATION_TO"),
-		os.Getenv("OPENCHANNEL_NOTIFICATION_CC"),
-		os.Getenv("OPENCHANNEL_NOTIFICATION_FROM"),
-		html.String(),
-		"Open Channel",
-	)
-	if err != nil {
-		log.Printf("Error sending open channel email: %v", err)
 		return err
 	}
 

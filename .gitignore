@@ -1,3 +1,4 @@
 .env
 vendor
 google-cloud-service.json
+server

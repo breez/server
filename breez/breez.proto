@@ -30,17 +30,11 @@ service Information {
 
 service ChannelOpener {
   rpc LSPList (LSPListRequest) returns (LSPListReply) {}
-  rpc OpenLSPChannel (OpenLSPChannelRequest) returns (OpenLSPChannelReply) {}
   rpc RegisterPayment (RegisterPaymentRequest) returns (RegisterPaymentReply) {}
   rpc CheckChannels(CheckChannelsRequest) returns (CheckChannelsReply) {}
 }
 
-service PublicChannelOpener {
-  rpc OpenPublicChannel(OpenPublicChannelRequest) returns (OpenPublicChannelReply) {}
-}
-
 service FundManager {
-  rpc OpenChannel (OpenChannelRequest) returns (OpenChannelReply) {}
   rpc UpdateChannelPolicy (UpdateChannelPolicyRequest) returns (UpdateChannelPolicyReply) {}
   rpc AddFundInit (AddFundInitRequest) returns (AddFundInitReply) {}
   rpc AddFundStatus (AddFundStatusRequest) returns (AddFundStatusReply) {}
@@ -199,25 +193,6 @@ message CheckChannelsRequest {
 message CheckChannelsReply {
   bytes blob = 2;
 }
-
-message OpenLSPChannelRequest {
-  string lsp_id = 1;
-  string pubkey = 2;
-}
-message OpenLSPChannelReply {}
-
-message OpenChannelRequest {
-  string pubKey = 1;
-  string notificationToken = 2;
-}
-
-message OpenChannelReply {}
-
-message OpenPublicChannelRequest {
-  string pubkey = 1;
-}
-
-message OpenPublicChannelReply {}
 
 message Captcha {
   string id = 1;
