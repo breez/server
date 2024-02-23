@@ -135,6 +135,8 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 					ValidUntil:           params.ValidUntil,
 					MaxIdleTime:          params.MaxIdleTime,
 					MaxClientToSelfDelay: params.MaxClientToSelfDelay,
+					MinPaymentSizeMsat:   params.MinPaymentSizeMsat,
+					MaxPaymentSizeMsat:   params.MaxPaymentSizeMsat,
 					Promise:              params.Promise,
 				})
 			}
