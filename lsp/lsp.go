@@ -240,3 +240,25 @@ func (s *Server) RegisterPaymentNotification(
 	}
 	return &breez.RegisterPaymentNotificationResponse{}, nil
 }
+
+func (s *Server) RemovePaymentNotification(
+	ctx context.Context,
+	in *breez.RemovePaymentNotificationRequest,
+) (*breez.RemovePaymentNotificationResponse, error) {
+	lsp, ok := lspConf.LspdList[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	lspdClient, ok := lspdClients[in.LspId]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "Not found")
+	}
+	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lsp.Token)
+	_, err := lspdClient.notificationClient.UnsubscribeNotifications(clientCtx, &lspdrpc.EncryptedNotificationRequest{
+		Blob: in.Blob,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &breez.RemovePaymentNotificationResponse{}, nil
+}
