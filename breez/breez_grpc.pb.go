@@ -1739,6 +1739,7 @@ var InactiveNotifier_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PaymentNotifierClient interface {
 	RegisterPaymentNotification(ctx context.Context, in *RegisterPaymentNotificationRequest, opts ...grpc.CallOption) (*RegisterPaymentNotificationResponse, error)
+	RemovePaymentNotification(ctx context.Context, in *RemovePaymentNotificationRequest, opts ...grpc.CallOption) (*RemovePaymentNotificationResponse, error)
 }
 
 type paymentNotifierClient struct {
@@ -1758,11 +1759,21 @@ func (c *paymentNotifierClient) RegisterPaymentNotification(ctx context.Context,
 	return out, nil
 }
 
+func (c *paymentNotifierClient) RemovePaymentNotification(ctx context.Context, in *RemovePaymentNotificationRequest, opts ...grpc.CallOption) (*RemovePaymentNotificationResponse, error) {
+	out := new(RemovePaymentNotificationResponse)
+	err := c.cc.Invoke(ctx, "/breez.PaymentNotifier/RemovePaymentNotification", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PaymentNotifierServer is the server API for PaymentNotifier service.
 // All implementations must embed UnimplementedPaymentNotifierServer
 // for forward compatibility
 type PaymentNotifierServer interface {
 	RegisterPaymentNotification(context.Context, *RegisterPaymentNotificationRequest) (*RegisterPaymentNotificationResponse, error)
+	RemovePaymentNotification(context.Context, *RemovePaymentNotificationRequest) (*RemovePaymentNotificationResponse, error)
 	mustEmbedUnimplementedPaymentNotifierServer()
 }
 
@@ -1772,6 +1783,9 @@ type UnimplementedPaymentNotifierServer struct {
 
 func (UnimplementedPaymentNotifierServer) RegisterPaymentNotification(context.Context, *RegisterPaymentNotificationRequest) (*RegisterPaymentNotificationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterPaymentNotification not implemented")
+}
+func (UnimplementedPaymentNotifierServer) RemovePaymentNotification(context.Context, *RemovePaymentNotificationRequest) (*RemovePaymentNotificationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemovePaymentNotification not implemented")
 }
 func (UnimplementedPaymentNotifierServer) mustEmbedUnimplementedPaymentNotifierServer() {}
 
@@ -1804,6 +1818,24 @@ func _PaymentNotifier_RegisterPaymentNotification_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaymentNotifier_RemovePaymentNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemovePaymentNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentNotifierServer).RemovePaymentNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/breez.PaymentNotifier/RemovePaymentNotification",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentNotifierServer).RemovePaymentNotification(ctx, req.(*RemovePaymentNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PaymentNotifier_ServiceDesc is the grpc.ServiceDesc for PaymentNotifier service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1814,6 +1846,10 @@ var PaymentNotifier_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterPaymentNotification",
 			Handler:    _PaymentNotifier_RegisterPaymentNotification_Handler,
+		},
+		{
+			MethodName: "RemovePaymentNotification",
+			Handler:    _PaymentNotifier_RemovePaymentNotification_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

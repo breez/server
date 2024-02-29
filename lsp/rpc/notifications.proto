@@ -7,6 +7,9 @@ package notifications;
 service Notifications {
     rpc SubscribeNotifications(EncryptedNotificationRequest)
         returns (SubscribeNotificationsReply) {}
+
+    rpc UnsubscribeNotifications(EncryptedNotificationRequest)
+        returns (UnsubscribeNotificationsReply) {}
 }  
 
 message EncryptedNotificationRequest {
@@ -19,4 +22,12 @@ message SubscribeNotificationsRequest {
 }
 
 message SubscribeNotificationsReply {
+}
+
+message UnsubscribeNotificationsRequest {
+    string url = 1;
+    bytes signature = 2;
+}
+
+message UnsubscribeNotificationsReply {
 }
