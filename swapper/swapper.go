@@ -2,7 +2,6 @@ package swapper
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -40,10 +39,10 @@ type Server struct {
 	client               lnrpc.LightningClient
 	ssClient             lnrpc.LightningClient
 	subswapClient        submarineswaprpc.SubmarineSwapperClient
+	redeemer             *Redeemer
 	walletKitClient      walletrpc.WalletKitClient
 	ssRouterClient       routerrpc.RouterClient
 	insertSubswapPayment func(paymentHash, paymentRequest string) error
-	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error
 	hasFilteredAddress   func(addrs []string) (bool, error)
 }
 
@@ -52,10 +51,10 @@ func NewServer(
 	redisPool *redis.Pool,
 	client, ssClient lnrpc.LightningClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
+	redeemer *Redeemer,
 	walletKitClient walletrpc.WalletKitClient,
 	ssRouterClient routerrpc.RouterClient,
 	insertSubswapPayment func(paymentHash, paymentRequest string) error,
-	updateSubswapPayment func(paymentHash, paymentPreimage, TxID string) error,
 	hasFilteredAddress func(addrs []string) (bool, error),
 ) *Server {
 	return &Server{
@@ -64,10 +63,10 @@ func NewServer(
 		client:               client,
 		ssClient:             ssClient,
 		subswapClient:        subswapClient,
+		redeemer:             redeemer,
 		walletKitClient:      walletKitClient,
 		ssRouterClient:       ssRouterClient,
 		insertSubswapPayment: insertSubswapPayment,
-		updateSubswapPayment: updateSubswapPayment,
 		hasFilteredAddress:   hasFilteredAddress,
 	}
 }
@@ -297,47 +296,25 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		if sendResponse != nil && sendResponse.PaymentError != "" {
 			err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
 		}
-		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
+		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, Preimage: %x, error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentPreimage, err)
 		return nil, err
 	}
 
-	// Redeem the transaction
-	redeem, err := s.subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
-		Preimage:   sendResponse.PaymentPreimage,
-		TargetConf: 30,
-	})
+	_, err = s.redeemer.Redeem(sendResponse.PaymentPreimage)
 	if err != nil {
-		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(sendResponse.PaymentPreimage), err)
-		return nil, err
-	}
-	err = s.updateSubswapPayment(hex.EncodeToString(decodedPayReq.PaymentHash[:]), hex.EncodeToString(sendResponse.PaymentPreimage), redeem.Txid)
-	if err != nil {
-		log.Printf("GetSwapPayment - updateSubswapPayment preimage: %x, txid: %v, error: %v", sendResponse.PaymentPreimage, redeem.Txid, err)
-		return nil, fmt.Errorf("error in updateSubswapPayment: %w", err)
+		log.Printf("Redeem - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
 	}
 
-	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
 }
 
 func (s *Server) RedeemSwapPayment(ctx context.Context, in *breez.RedeemSwapPaymentRequest) (*breez.RedeemSwapPaymentReply, error) {
-	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
-	if in.SatPerByte == 0 && in.TargetConf == 0 {
-		in.TargetConf = 30
-	}
-	redeem, err := s.subswapClient.SubSwapServiceRedeem(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemRequest{
-		Preimage:   in.Preimage,
-		TargetConf: in.TargetConf,
-		SatPerByte: in.SatPerByte,
-	})
+	txid, err := s.redeemer.RedeemWithFees(in.Preimage, in.TargetConf, in.SatPerByte)
 	if err != nil {
-		log.Printf("GetSwapPayment - couldn't redeem transaction for preimage: %v, error: %v", hex.EncodeToString(in.Preimage), err)
 		return nil, err
 	}
-	h := sha256.Sum256(in.Preimage)
-	s.updateSubswapPayment(hex.EncodeToString(h[:]), hex.EncodeToString(in.Preimage), redeem.Txid)
-	log.Printf("GetSwapPayment - redeem tx broadcast: %v", redeem.Txid)
-	return &breez.RedeemSwapPaymentReply{Txid: redeem.Txid}, nil
+
+	return &breez.RedeemSwapPaymentReply{Txid: txid}, nil
 }
 
 // Calculate the max allowed deposit for a node

@@ -433,6 +433,10 @@ func main() {
 		log.Printf("pgConnect error: %v", err)
 	}
 	go registerPastBoltzReverseSwapTxNotifications()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	redeemer := swapper.NewRedeemer(ssClient, subswapClient, updateSubswapPreimage, updateSubswapTxid)
+	redeemer.Start(ctx)
 
 	lsp.InitLSP()
 
@@ -510,8 +514,8 @@ func main() {
 	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspList)
 	breez.RegisterSupportServer(s, supportServer)
 
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, ssWalletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPayment, hasFilteredAddress)
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
+		insertSubswapPayment, hasFilteredAddress)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{

@@ -60,20 +60,35 @@ func insertSubswapPayment(paymentHash, paymentRequest string) error {
 	return nil
 }
 
-func updateSubswapPayment(paymentHash, paymentPreimage, TxID string) error {
+func updateSubswapPreimage(paymentHash, paymentPreimage string) error {
 	commandTag, err := pgxPool.Exec(context.Background(),
 		`UPDATE swap_payments
          SET
-          payment_preimage=$2,
-          txid=txid||$3
-         WHERE payment_hash=$1`, paymentHash, paymentPreimage, []string{TxID})
+          payment_preimage=$2
+         WHERE payment_hash=$1`, paymentHash, paymentPreimage)
 	if err != nil {
-		log.Printf("pgxPool.Exec('UPDATE swap_payments(%v, %v, %v): %v",
-			paymentHash, paymentPreimage, TxID, err)
+		log.Printf("updateSubswapPreimage(%v, %v): %v",
+			paymentHash, paymentPreimage, err)
 		return fmt.Errorf("pgxPool.Exec(): %w", err)
 	}
-	log.Printf("pgxPool.Exec('UPDATE INTO swap_payments(%v, %v, %v)'; RowsAffected(): %v'",
-		paymentHash, paymentPreimage, TxID, commandTag.RowsAffected())
+	log.Printf("updateSubswapPreimage(%v, %v)'; RowsAffected(): %v'",
+		paymentHash, paymentPreimage, commandTag.RowsAffected())
+	return nil
+}
+
+func updateSubswapTxid(paymentHash, txid string) error {
+	commandTag, err := pgxPool.Exec(context.Background(),
+		`UPDATE swap_payments
+         SET
+          txid=txid||$2
+         WHERE payment_hash=$1`, paymentHash, []string{txid})
+	if err != nil {
+		log.Printf("updateSubswapTxid(%v, %v): %v",
+			paymentHash, txid, err)
+		return fmt.Errorf("pgxPool.Exec(): %w", err)
+	}
+	log.Printf("updateSubswapTxid(%v, %v)'; RowsAffected(): %v'",
+		paymentHash, txid, commandTag.RowsAffected())
 	return nil
 }
 
