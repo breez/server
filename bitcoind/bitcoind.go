@@ -45,3 +45,26 @@ func GetSenderAddresses(destTxs []string) ([]string, error) {
 	}
 	return addrs, nil
 }
+
+func GetTransaction(txid string) (*gbitcoind.RawTransaction, error) {
+	bitcoindPort, err := strconv.Atoi(os.Getenv("BITCOIND_PORT"))
+	if err != nil {
+		return nil, fmt.Errorf("no valid port for bitcoind: %v", os.Getenv("BITCOIND_PORT"))
+	}
+	bc, err := gbitcoind.New(os.Getenv("BITCOIND_HOST"), bitcoindPort, os.Getenv("BITCOIND_USER"), os.Getenv("BITCOIND_PASSWORD"), false)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create a bitcoind client: %w", err)
+	}
+
+	t, err := bc.GetRawTransaction(txid, true)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tx: %w", err)
+	}
+
+	rawtx, ok := t.(gbitcoind.RawTransaction)
+	if !ok {
+		return nil, fmt.Errorf("tx is not a gbitcoind.RawTransaction: %w", err)
+	}
+
+	return &rawtx, nil
+}

@@ -300,9 +300,9 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 
-	_, err = s.redeemer.Redeem(sendResponse.PaymentPreimage)
+	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight)
 	if err != nil {
-		log.Printf("Redeem - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
+		log.Printf("RedeemWithinBlocks - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
 	}
 
 	return &breez.GetSwapPaymentReply{PaymentError: sendResponse.PaymentError}, nil
