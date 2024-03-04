@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/breez/server/breez"
+	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/google/uuid"
 	"github.com/jackc/pgtype"
@@ -44,12 +45,37 @@ func pgConnect() error {
 	return nil
 }
 
-func insertSubswapPayment(paymentHash, paymentRequest string) error {
+func setRedeemSyncHeight(blockheight int32) error {
+	_, err := pgxPool.Exec(context.Background(),
+		`UPDATE redeem_sync
+		 SET block_height = $1
+		`,
+		blockheight)
+	return err
+}
+
+func getRedeemSyncHeight() (int32, error) {
+	row := pgxPool.QueryRow(context.Background(),
+		`SELECT block_height
+	 	 FROM redeem_sync
+	`)
+	var block_height int32
+	err := row.Scan(&block_height)
+	return block_height, err
+}
+
+func insertSubswapPayment(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error {
 	commandTag, err := pgxPool.Exec(context.Background(),
 		`INSERT INTO swap_payments
-          (payment_hash, payment_request)
-          VALUES ($1, $2)
-          ON CONFLICT DO NOTHING`, paymentHash, paymentRequest)
+          (payment_hash, payment_request, lock_height, confirmation_height, utxos, redeem_confirmed)
+          VALUES ($1, $2, $3, $4, $5, false)
+          ON CONFLICT DO NOTHING`,
+		paymentHash,
+		paymentRequest,
+		lockheight,
+		confirmationheight,
+		utxos,
+	)
 	if err != nil {
 		log.Printf("pgxPool.Exec('INSERT INTO swap_payments(%v, %v): %v",
 			paymentHash, paymentRequest, err)
@@ -58,6 +84,58 @@ func insertSubswapPayment(paymentHash, paymentRequest string) error {
 	log.Printf("pgxPool.Exec('INSERT INTO swap_payments(%v, %v)'; RowsAffected(): %v'",
 		paymentHash, paymentRequest, commandTag.RowsAffected())
 	return nil
+}
+
+func getInProgressRedeems(blockheight int32) ([]*swapper.InProgressRedeem, error) {
+	ignoreBefore := blockheight - (288 * 14)
+	rows, err := pgxPool.Query(context.Background(),
+		`SELECT payment_hash
+		 ,      payment_preimage
+		 ,      lock_height
+		 ,      confirmation_height
+		 ,      utxos
+		 ,      txid
+		 FROM swap_payments
+		 WHERE redeem_confirmed = false
+		 	AND confirmation_height > $1
+		 ORDER BY confirmation_height
+	`, ignoreBefore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query swap_payments: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*swapper.InProgressRedeem
+	for rows.Next() {
+		var payment_hash string
+		var payment_preimage *string
+		var lock_height int32
+		var confirmation_height int32
+		var utxos []string
+		var txid []string
+		err = rows.Scan(
+			&payment_hash,
+			&payment_preimage,
+			&lock_height,
+			&confirmation_height,
+			&utxos,
+			&txid,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("rows.Scan() error: %w", err)
+		}
+
+		result = append(result, &swapper.InProgressRedeem{
+			PaymentHash:        payment_hash,
+			Preimage:           payment_preimage,
+			LockHeight:         lock_height,
+			ConfirmationHeight: confirmation_height,
+			Utxos:              utxos,
+			RedeemTxids:        txid,
+		})
+	}
+
+	return result, nil
 }
 
 func updateSubswapPreimage(paymentHash, paymentPreimage string) error {
@@ -90,6 +168,17 @@ func updateSubswapTxid(paymentHash, txid string) error {
 	log.Printf("updateSubswapTxid(%v, %v)'; RowsAffected(): %v'",
 		paymentHash, txid, commandTag.RowsAffected())
 	return nil
+}
+
+func setSubswapConfirmed(paymentHash string) error {
+	_, err := pgxPool.Exec(context.Background(),
+		`UPDATE swap_payments
+		 SET redeem_confirmed = true
+		 WHERE payment_hash = $1
+		`,
+		paymentHash,
+	)
+	return err
 }
 
 func insertTxNotification(in *breez.PushTxNotificationRequest) (*uuid.UUID, error) {

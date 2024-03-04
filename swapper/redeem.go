@@ -15,22 +15,37 @@ import (
 	"sync"
 	"time"
 
-	"github.com/breez/server/bitcoind"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"google.golang.org/grpc/metadata"
 )
 
 const SwapLockTime = 288
+const MinConfirmations = 6
+
+type InProgressRedeem struct {
+	PaymentHash        string
+	Preimage           *string
+	LockHeight         int32
+	ConfirmationHeight int32
+	Utxos              []string
+	RedeemTxids        []string
+}
 
 type Redeemer struct {
 	ssClient              lnrpc.LightningClient
+	ssRouterClient        routerrpc.RouterClient
 	subswapClient         submarineswaprpc.SubmarineSwapperClient
-	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
 	updateSubswapTxid     func(paymentHash, txid string) error
+	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
+	getInProgressRedeems  func(blockheight int32) ([]*InProgressRedeem, error)
+	getRedeemSyncHeight   func() (int32, error)
+	setRedeemSyncHeight   func(blockheight int32) error
+	setSubswapConfirmed   func(paymentHash string) error
 	feesLastUpdated       time.Time
 	currentFees           *whatthefeeBody
 	mtx                   sync.RWMutex
@@ -38,15 +53,25 @@ type Redeemer struct {
 
 func NewRedeemer(
 	ssClient lnrpc.LightningClient,
+	ssRouterClient routerrpc.RouterClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
-	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	updateSubswapTxid func(paymentHash, txid string) error,
+	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
+	getInProgressRedeems func(blockheight int32) ([]*InProgressRedeem, error),
+	setSubswapConfirmed func(paymentHash string) error,
+	getRedeemSyncHeight func() (int32, error),
+	setRedeemSyncHeight func(blockheight int32) error,
 ) *Redeemer {
 	return &Redeemer{
 		ssClient:              ssClient,
+		ssRouterClient:        ssRouterClient,
 		subswapClient:         subswapClient,
-		updateSubswapPreimage: updateSubswapPreimage,
 		updateSubswapTxid:     updateSubswapTxid,
+		updateSubswapPreimage: updateSubswapPreimage,
+		getInProgressRedeems:  getInProgressRedeems,
+		setSubswapConfirmed:   setSubswapConfirmed,
+		getRedeemSyncHeight:   getRedeemSyncHeight,
+		setRedeemSyncHeight:   setRedeemSyncHeight,
 	}
 }
 
@@ -180,8 +205,20 @@ func (r *Redeemer) checkRedeems() {
 		return
 	}
 
-	unconfirmed, err := r.ssClient.GetTransactions(context.Background(), &lnrpc.GetTransactionsRequest{
-		StartHeight: int32(info.BlockHeight) + 1,
+	syncHeight, err := r.getRedeemSyncHeight()
+	if err != nil {
+		log.Printf("Failed to get redeem sync height: %v", err)
+		return
+	}
+
+	inProgressRedeems, err := r.getInProgressRedeems(int32(info.BlockHeight))
+	if err != nil {
+		log.Printf("Failed to get in progress redeems: %v", err)
+		return
+	}
+
+	txns, err := r.ssClient.GetTransactions(context.Background(), &lnrpc.GetTransactionsRequest{
+		StartHeight: syncHeight,
 		EndHeight:   -1,
 	})
 	if err != nil {
@@ -189,77 +226,159 @@ func (r *Redeemer) checkRedeems() {
 		return
 	}
 
-	for _, tx := range unconfirmed.Transactions {
-		r.checkRedeem(tx)
+	txMap := make(map[string]*lnrpc.Transaction, 0)
+	for _, tx := range txns.Transactions {
+		txMap[tx.TxHash] = tx
+	}
+
+	for _, inProgressRedeem := range inProgressRedeems {
+		err = r.checkRedeem(int32(info.BlockHeight), inProgressRedeem, txMap)
+		if err != nil {
+			log.Printf("checkRedeem - payment hash %s failed: %v", inProgressRedeem.PaymentHash, err)
+		}
+	}
+
+	// TODO: What if one of the checkRedeem calls had an error?
+	err = r.setRedeemSyncHeight(int32(info.BlockHeight) - MinConfirmations)
+	if err != nil {
+		log.Printf("Failed to set redeem sync height: %v", err)
 	}
 }
 
-func (r *Redeemer) checkRedeem(tx *lnrpc.Transaction) {
-	input, weight, preimage, err := parseRedeemTx(tx)
+func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRedeem, txMap map[string]*lnrpc.Transaction) error {
+	var txns []*lnrpc.Transaction
+	for _, txid := range inProgressRedeem.RedeemTxids {
+		tx, ok := txMap[txid]
+		if !ok {
+			continue
+		}
+
+		txns = append(txns, tx)
+	}
+
+	preimageStr, err := r.tryGetPreimage(inProgressRedeem)
 	if err != nil {
-		// Not a redeem tx
-		return
+		return err
 	}
 
-	if tx.NumConfirmations > 0 {
-		// Do nothing
-		return
+	preimage, err := hex.DecodeString(preimageStr)
+	if err != nil {
+		return fmt.Errorf("failed to hex decode preimage: %w", err)
 	}
 
-	var satPerVbyte float64
-	prevSatPerVbyte := float64(tx.TotalFees) * 4 / float64(weight)
-	txin, err := bitcoind.GetTransaction(input.Hash.String())
-	if err == nil {
-		satPerVbyte, err = r.getFeeRate(int32(SwapLockTime - txin.Confirmations))
-	} else {
-		satPerVbyte, err = r.getFeeRate(30)
+	blocksLeft := inProgressRedeem.LockHeight - (blockHeight - inProgressRedeem.ConfirmationHeight)
+	// Always redeem if there is no redeem tx yet.
+	if len(txns) == 0 {
+		_, err := r.RedeemWithinBlocks(preimage, blocksLeft)
+		return err
 	}
 
+	var bestTxSatPerVbyte float64
+	for _, tx := range txns {
+		if tx.NumConfirmations > MinConfirmations {
+			err = r.setSubswapConfirmed(inProgressRedeem.PaymentHash)
+			if err != nil {
+				log.Printf(
+					"failed to set subswap payment hash '%s' confirmed: %v",
+					inProgressRedeem.PaymentHash,
+					err,
+				)
+			}
+			return nil
+		}
+
+		if tx.NumConfirmations > 0 {
+			// Do nothing
+			return nil
+		}
+
+		weight, err := getWeight(tx)
+		if err != nil {
+			return fmt.Errorf("failed to compute tx weight: %w", err)
+		}
+
+		currentTxSatPerVbyte := float64(tx.TotalFees) * 4 / float64(weight)
+		if currentTxSatPerVbyte > bestTxSatPerVbyte {
+			bestTxSatPerVbyte = currentTxSatPerVbyte
+		}
+	}
+
+	satPerVbyte, err := r.getFeeRate(blocksLeft)
 	if err != nil {
 		log.Printf("failed to get redeem fee rate: %v", err)
-		r.RedeemWithinBlocks(preimage, 30)
-		return
+		// If there is a problem getting the fees, try to bump the tx on best effort.
+		_, err = r.RedeemWithinBlocks(preimage, blocksLeft)
+		return err
 	}
 
-	if prevSatPerVbyte+1 >= satPerVbyte {
+	if bestTxSatPerVbyte+1 >= float64(int64(satPerVbyte)) {
 		// Fee has not increased enough, do nothing
-		return
+		return nil
 	}
 
 	// Attempt to redeem again with the higher fees.
-	r.RedeemWithFees(preimage, 30, int64(satPerVbyte))
+	_, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
+	return err
 }
 
-func parseRedeemTx(tx *lnrpc.Transaction) (*wire.OutPoint, int64, []byte, error) {
+func (r *Redeemer) tryGetPreimage(inProgressRedeem *InProgressRedeem) (string, error) {
+	if inProgressRedeem.Preimage != nil {
+		return *inProgressRedeem.Preimage, nil
+	}
+
+	ph, err := hex.DecodeString(inProgressRedeem.PaymentHash)
+	if err != nil {
+		return "", fmt.Errorf("failed to hex decode payment hash: %w", err)
+	}
+
+	// If there is no preimage, check whether the preimage is on the node
+	tp, err := r.ssRouterClient.TrackPaymentV2(
+		context.Background(),
+		&routerrpc.TrackPaymentRequest{
+			PaymentHash: ph,
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to lookup payment: %w", err)
+	}
+
+	// TODO: Confirm this call doesn't block if the payment is not found
+	paymentInfo, err := tp.Recv()
+	if err != nil {
+		return "", fmt.Errorf("failed to lookup payment: %w", err)
+	}
+
+	if paymentInfo.PaymentPreimage == "" {
+		return "", fmt.Errorf("no preimage found")
+	}
+
+	err = r.updateSubswapPreimage(inProgressRedeem.PaymentHash, paymentInfo.PaymentPreimage)
+	if err != nil {
+		log.Printf(
+			"failed to update subswap preimage '%s' for payment hash '%s'. error: %v",
+			paymentInfo.PaymentPreimage,
+			inProgressRedeem.PaymentHash,
+			err)
+	}
+
+	return paymentInfo.PaymentPreimage, nil
+}
+
+func getWeight(tx *lnrpc.Transaction) (int64, error) {
 	//rawTx contain the hex decode raw tx
 	rawTx, err := hex.DecodeString(tx.RawTxHex)
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("failed to hex decode tx: %w", err)
+		return 0, fmt.Errorf("failed to hex decode tx: %w", err)
 	}
 	msgTx := wire.NewMsgTx(wire.TxVersion)
 	err = msgTx.Deserialize(bytes.NewReader(rawTx))
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("failed to deserialize tx: %w", err)
-	}
-
-	if len(msgTx.TxIn) != 1 {
-		// In the Redeem tx, there is only one TxIn
-		return nil, 0, nil, fmt.Errorf("not a redeem tx")
-	}
-
-	txin := msgTx.TxIn[0]
-	if len(txin.Witness) < 2 {
-		return nil, 0, nil, fmt.Errorf("not a redeem tx")
-	}
-
-	preimage := txin.Witness[1]
-	if preimage == nil {
-		return nil, 0, nil, fmt.Errorf("no preimage")
+		return 0, fmt.Errorf("failed to deserialize tx: %w", err)
 	}
 
 	utilTx := btcutil.NewTx(msgTx)
 	weight := blockchain.GetTransactionWeight(utilTx)
-	return &txin.PreviousOutPoint, weight, preimage, nil
+	return weight, nil
 }
 
 func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32) (string, error) {
@@ -277,10 +396,6 @@ func (r *Redeemer) RedeemWithFees(preimage []byte, targetConf int32, satPerVbyte
 
 func (r *Redeemer) doRedeem(preimage []byte, targetConf int32, satPerByte int64) (string, error) {
 	ph := sha256.Sum256(preimage)
-	err := r.updateSubswapPreimage(hex.EncodeToString(ph[:]), hex.EncodeToString(preimage))
-	if err != nil {
-		log.Printf("Failed to update subswap preimage '%x' for payment hash '%x', error: %v", preimage, ph, err)
-	}
 
 	if targetConf > 0 && satPerByte > 0 {
 		targetConf = 0

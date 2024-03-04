@@ -34,16 +34,17 @@ const (
 // Server implements lsp grpc functions
 type Server struct {
 	breez.UnimplementedSwapperServer
-	network              *chaincfg.Params
-	redisPool            *redis.Pool
-	client               lnrpc.LightningClient
-	ssClient             lnrpc.LightningClient
-	subswapClient        submarineswaprpc.SubmarineSwapperClient
-	redeemer             *Redeemer
-	walletKitClient      walletrpc.WalletKitClient
-	ssRouterClient       routerrpc.RouterClient
-	insertSubswapPayment func(paymentHash, paymentRequest string) error
-	hasFilteredAddress   func(addrs []string) (bool, error)
+	network               *chaincfg.Params
+	redisPool             *redis.Pool
+	client                lnrpc.LightningClient
+	ssClient              lnrpc.LightningClient
+	subswapClient         submarineswaprpc.SubmarineSwapperClient
+	redeemer              *Redeemer
+	walletKitClient       walletrpc.WalletKitClient
+	ssRouterClient        routerrpc.RouterClient
+	insertSubswapPayment  func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error
+	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
+	hasFilteredAddress    func(addrs []string) (bool, error)
 }
 
 func NewServer(
@@ -54,20 +55,22 @@ func NewServer(
 	redeemer *Redeemer,
 	walletKitClient walletrpc.WalletKitClient,
 	ssRouterClient routerrpc.RouterClient,
-	insertSubswapPayment func(paymentHash, paymentRequest string) error,
+	insertSubswapPayment func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error,
+	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	hasFilteredAddress func(addrs []string) (bool, error),
 ) *Server {
 	return &Server{
-		network:              network,
-		redisPool:            redisPool,
-		client:               client,
-		ssClient:             ssClient,
-		subswapClient:        subswapClient,
-		redeemer:             redeemer,
-		walletKitClient:      walletKitClient,
-		ssRouterClient:       ssRouterClient,
-		insertSubswapPayment: insertSubswapPayment,
-		hasFilteredAddress:   hasFilteredAddress,
+		network:               network,
+		redisPool:             redisPool,
+		client:                client,
+		ssClient:              ssClient,
+		subswapClient:         subswapClient,
+		redeemer:              redeemer,
+		walletKitClient:       walletKitClient,
+		ssRouterClient:        ssRouterClient,
+		insertSubswapPayment:  insertSubswapPayment,
+		updateSubswapPreimage: updateSubswapPreimage,
+		hasFilteredAddress:    hasFilteredAddress,
 	}
 }
 
@@ -263,8 +266,19 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "couldn't determine the current blockheight")
 	}
 
-	if 4*(int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight) > 3*utxos.LockHeight {
-		log.Printf("Client transaction height: %v older than redeem block treshold", utxos.Utxos[0].BlockHeight)
+	// Get the oldest height of the utxos and the utxo ids
+	utxoids := make([]string, len(utxos.Utxos))
+	utxoids[0] = fmt.Sprintf("%s:%d", utxos.Utxos[0].Txid, utxos.Utxos[0].Index)
+	minHeight := utxos.Utxos[0].BlockHeight
+	for i := 1; i < len(utxos.Utxos); i++ {
+		utxoids[i] = fmt.Sprintf("%s:%d", utxos.Utxos[i].Txid, utxos.Utxos[i].Index)
+		if utxos.Utxos[i].BlockHeight < minHeight {
+			minHeight = utxos.Utxos[i].BlockHeight
+		}
+	}
+
+	if 4*(int32(chainInfo.BlockHeight)-minHeight) > 3*utxos.LockHeight {
+		log.Printf("Client transaction height: %v older than redeem block treshold", minHeight)
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
 			SwapError:          breez.GetSwapPaymentReply_SWAP_EXPIRED,
@@ -282,7 +296,13 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "fa internal error")
 	}
 
-	err = s.insertSubswapPayment(hex.EncodeToString(decodedPayReq.PaymentHash[:]), in.PaymentRequest)
+	err = s.insertSubswapPayment(
+		hex.EncodeToString(decodedPayReq.PaymentHash[:]),
+		in.PaymentRequest,
+		utxos.LockHeight,
+		minHeight,
+		utxoids,
+	)
 	if err != nil {
 		log.Printf("GetSwapPayment - insertSubswapPayment paymentRequest: %v, error: %v", in.PaymentRequest, err)
 		return nil, fmt.Errorf("error in insertSubswapPayment: %w", err)
@@ -300,7 +320,12 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 
-	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-utxos.Utxos[0].BlockHeight)
+	err = s.updateSubswapPreimage(hex.EncodeToString(sendResponse.PaymentHash), hex.EncodeToString(sendResponse.PaymentPreimage))
+	if err != nil {
+		log.Printf("Failed to update subswap preimage '%x' for payment hash '%x', error: %v", sendResponse.PaymentPreimage, sendResponse.PaymentHash, err)
+	}
+
+	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-minHeight)
 	if err != nil {
 		log.Printf("RedeemWithinBlocks - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
 	}
