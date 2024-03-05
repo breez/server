@@ -43,8 +43,6 @@ type Redeemer struct {
 	updateSubswapTxid     func(paymentHash, txid string) error
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
 	getInProgressRedeems  func(blockheight int32) ([]*InProgressRedeem, error)
-	getRedeemSyncHeight   func() (int32, error)
-	setRedeemSyncHeight   func(blockheight int32) error
 	setSubswapConfirmed   func(paymentHash string) error
 	feesLastUpdated       time.Time
 	currentFees           *whatthefeeBody
@@ -59,8 +57,6 @@ func NewRedeemer(
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	getInProgressRedeems func(blockheight int32) ([]*InProgressRedeem, error),
 	setSubswapConfirmed func(paymentHash string) error,
-	getRedeemSyncHeight func() (int32, error),
-	setRedeemSyncHeight func(blockheight int32) error,
 ) *Redeemer {
 	return &Redeemer{
 		ssClient:              ssClient,
@@ -70,8 +66,6 @@ func NewRedeemer(
 		updateSubswapPreimage: updateSubswapPreimage,
 		getInProgressRedeems:  getInProgressRedeems,
 		setSubswapConfirmed:   setSubswapConfirmed,
-		getRedeemSyncHeight:   getRedeemSyncHeight,
-		setRedeemSyncHeight:   setRedeemSyncHeight,
 	}
 }
 
@@ -205,16 +199,17 @@ func (r *Redeemer) checkRedeems() {
 		return
 	}
 
-	syncHeight, err := r.getRedeemSyncHeight()
-	if err != nil {
-		log.Printf("Failed to get redeem sync height: %v", err)
-		return
-	}
-
 	inProgressRedeems, err := r.getInProgressRedeems(int32(info.BlockHeight))
 	if err != nil {
 		log.Printf("Failed to get in progress redeems: %v", err)
 		return
+	}
+
+	syncHeight := int32(info.BlockHeight)
+	for _, inProgressRedeem := range inProgressRedeems {
+		if inProgressRedeem.ConfirmationHeight < syncHeight {
+			syncHeight = inProgressRedeem.ConfirmationHeight
+		}
 	}
 
 	txns, err := r.ssClient.GetTransactions(context.Background(), &lnrpc.GetTransactionsRequest{
@@ -236,12 +231,6 @@ func (r *Redeemer) checkRedeems() {
 		if err != nil {
 			log.Printf("checkRedeem - payment hash %s failed: %v", inProgressRedeem.PaymentHash, err)
 		}
-	}
-
-	// TODO: What if one of the checkRedeem calls had an error?
-	err = r.setRedeemSyncHeight(int32(info.BlockHeight) - MinConfirmations)
-	if err != nil {
-		log.Printf("Failed to set redeem sync height: %v", err)
 	}
 }
 

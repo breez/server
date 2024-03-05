@@ -1,8 +1,3 @@
-CREATE TABLE public.redeem_sync (
-    block_height bigint NOT NULL
-);
-INSERT INTO public.redeem_sync (block_height) VALUES (833123);
-
 ALTER TABLE public.swap_payments
 ADD COLUMN lock_height bigint NULL,
 ADD COLUMN confirmation_height bigint NULL,

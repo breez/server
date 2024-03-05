@@ -437,7 +437,7 @@ func main() {
 	defer cancel()
 	redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
 		updateSubswapTxid, updateSubswapPreimage, getInProgressRedeems,
-		setSubswapConfirmed, getRedeemSyncHeight, setRedeemSyncHeight)
+		setSubswapConfirmed)
 	redeemer.Start(ctx)
 
 	lsp.InitLSP()

@@ -45,25 +45,6 @@ func pgConnect() error {
 	return nil
 }
 
-func setRedeemSyncHeight(blockheight int32) error {
-	_, err := pgxPool.Exec(context.Background(),
-		`UPDATE redeem_sync
-		 SET block_height = $1
-		`,
-		blockheight)
-	return err
-}
-
-func getRedeemSyncHeight() (int32, error) {
-	row := pgxPool.QueryRow(context.Background(),
-		`SELECT block_height
-	 	 FROM redeem_sync
-	`)
-	var block_height int32
-	err := row.Scan(&block_height)
-	return block_height, err
-}
-
 func insertSubswapPayment(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error {
 	commandTag, err := pgxPool.Exec(context.Background(),
 		`INSERT INTO swap_payments
