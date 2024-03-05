@@ -258,8 +258,10 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	blocksLeft := inProgressRedeem.LockHeight - (blockHeight - inProgressRedeem.ConfirmationHeight)
 	// Always redeem if there is no redeem tx yet.
 	if len(txns) == 0 {
-		_, err := r.RedeemWithinBlocks(preimage, blocksLeft)
-		return err
+		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
+		return nil
+		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft)
+		// return err
 	}
 
 	var bestTxSatPerVbyte float64
@@ -296,8 +298,10 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	if err != nil {
 		log.Printf("failed to get redeem fee rate: %v", err)
 		// If there is a problem getting the fees, try to bump the tx on best effort.
-		_, err = r.RedeemWithinBlocks(preimage, blocksLeft)
-		return err
+		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
+		return nil
+		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft)
+		// return err
 	}
 
 	if bestTxSatPerVbyte+1 >= float64(int64(satPerVbyte)) {
@@ -306,8 +310,10 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	}
 
 	// Attempt to redeem again with the higher fees.
-	_, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
-	return err
+	log.Printf("RedeemWithFees - preimage: %x, blocksLeft: %v fee: %v", preimage, blocksLeft, satPerVbyte)
+	return nil
+	// _, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
+	// return err
 }
 
 func (r *Redeemer) tryGetPreimage(inProgressRedeem *InProgressRedeem) (string, error) {
