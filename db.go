@@ -78,6 +78,7 @@ func getInProgressRedeems(blockheight int32) ([]*swapper.InProgressRedeem, error
 		 ,      txid
 		 FROM swap_payments
 		 WHERE redeem_confirmed = false
+		 	AND payment_preimage is not null
 		 	AND confirmation_height > $1
 		 ORDER BY confirmation_height
 	`, ignoreBefore)

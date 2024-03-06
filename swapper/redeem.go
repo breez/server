@@ -235,6 +235,7 @@ func (r *Redeemer) checkRedeems() {
 }
 
 func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRedeem, txMap map[string]*lnrpc.Transaction) error {
+	log.Printf("checkRedeem - payment hash %s", inProgressRedeem.PaymentHash)
 	var txns []*lnrpc.Transaction
 	for _, txid := range inProgressRedeem.RedeemTxids {
 		tx, ok := txMap[txid]
@@ -245,11 +246,11 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 		txns = append(txns, tx)
 	}
 
-	preimageStr, err := r.tryGetPreimage(inProgressRedeem)
-	if err != nil {
-		return err
+	if inProgressRedeem.Preimage == nil {
+		return fmt.Errorf("preimage not found for payment hash %s", inProgressRedeem.PaymentHash)
 	}
 
+	preimageStr := *inProgressRedeem.Preimage
 	preimage, err := hex.DecodeString(preimageStr)
 	if err != nil {
 		return fmt.Errorf("failed to hex decode preimage: %w", err)
@@ -314,49 +315,6 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	return nil
 	// _, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
 	// return err
-}
-
-func (r *Redeemer) tryGetPreimage(inProgressRedeem *InProgressRedeem) (string, error) {
-	if inProgressRedeem.Preimage != nil {
-		return *inProgressRedeem.Preimage, nil
-	}
-
-	ph, err := hex.DecodeString(inProgressRedeem.PaymentHash)
-	if err != nil {
-		return "", fmt.Errorf("failed to hex decode payment hash: %w", err)
-	}
-
-	// If there is no preimage, check whether the preimage is on the node
-	tp, err := r.ssRouterClient.TrackPaymentV2(
-		context.Background(),
-		&routerrpc.TrackPaymentRequest{
-			PaymentHash: ph,
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to lookup payment: %w", err)
-	}
-
-	// TODO: Confirm this call doesn't block if the payment is not found
-	paymentInfo, err := tp.Recv()
-	if err != nil {
-		return "", fmt.Errorf("failed to lookup payment: %w", err)
-	}
-
-	if paymentInfo.PaymentPreimage == "" {
-		return "", fmt.Errorf("no preimage found")
-	}
-
-	err = r.updateSubswapPreimage(inProgressRedeem.PaymentHash, paymentInfo.PaymentPreimage)
-	if err != nil {
-		log.Printf(
-			"failed to update subswap preimage '%s' for payment hash '%s'. error: %v",
-			paymentInfo.PaymentPreimage,
-			inProgressRedeem.PaymentHash,
-			err)
-	}
-
-	return paymentInfo.PaymentPreimage, nil
 }
 
 func getWeight(tx *lnrpc.Transaction) (int64, error) {
