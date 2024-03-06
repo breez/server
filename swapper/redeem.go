@@ -139,6 +139,10 @@ func (r *Redeemer) getFeeRate(blocks int32) (float64, error) {
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 
+	if r.currentFees == nil {
+		return 0, fmt.Errorf("still no fees")
+	}
+
 	if len(r.currentFees.Index) < 1 {
 		return 0, fmt.Errorf("empty row index")
 	}
