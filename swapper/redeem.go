@@ -193,7 +193,10 @@ func (r *Redeemer) getFeeRate(blocks int32) (float64, error) {
 }
 
 func (r *Redeemer) checkRedeems() {
-	info, err := r.ssClient.GetInfo(context.Background(), &lnrpc.GetInfoRequest{})
+
+	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+
+	info, err := r.ssClient.GetInfo(subswapClientCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
 		log.Printf("Failed to GetInfo from subswap node: %v", err)
 		return
@@ -212,7 +215,7 @@ func (r *Redeemer) checkRedeems() {
 		}
 	}
 
-	txns, err := r.ssClient.GetTransactions(context.Background(), &lnrpc.GetTransactionsRequest{
+	txns, err := r.ssClient.GetTransactions(subswapClientCtx, &lnrpc.GetTransactionsRequest{
 		StartHeight: syncHeight,
 		EndHeight:   -1,
 	})
