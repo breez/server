@@ -70,6 +70,7 @@ func NewRedeemer(
 }
 
 func (r *Redeemer) Start(ctx context.Context) {
+	log.Printf("REDEEM - before r.watchRedeemTxns()")
 	go r.watchRedeemTxns(ctx)
 	go r.watchFeeRate(ctx)
 }
@@ -97,6 +98,7 @@ func (r *Redeemer) watchFeeRate(ctx context.Context) {
 
 func (r *Redeemer) watchRedeemTxns(ctx context.Context) {
 	for {
+		log.Printf("REDEEM - before checkRedeems()")
 		r.checkRedeems()
 
 		select {
@@ -193,6 +195,7 @@ func (r *Redeemer) getFeeRate(blocks int32) (float64, error) {
 }
 
 func (r *Redeemer) checkRedeems() {
+	log.Printf("REDEEM - checkRedeems() begin")
 
 	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
 
@@ -202,6 +205,7 @@ func (r *Redeemer) checkRedeems() {
 		return
 	}
 
+	log.Printf("REDEEM - checkRedeems() before r.getInProgressRedeems(%v)", int32(info.BlockHeight))
 	inProgressRedeems, err := r.getInProgressRedeems(int32(info.BlockHeight))
 	if err != nil {
 		log.Printf("Failed to get in progress redeems: %v", err)
@@ -215,6 +219,7 @@ func (r *Redeemer) checkRedeems() {
 		}
 	}
 
+	log.Printf("REDEEM - checkRedeems() before GetTransactions(%v)", syncHeight)
 	txns, err := r.ssClient.GetTransactions(subswapClientCtx, &lnrpc.GetTransactionsRequest{
 		StartHeight: syncHeight,
 		EndHeight:   -1,
@@ -230,6 +235,7 @@ func (r *Redeemer) checkRedeems() {
 	}
 
 	for _, inProgressRedeem := range inProgressRedeems {
+		log.Printf("REDEEM - checkRedeems() before checkRedeem(%v)", inProgressRedeem.PaymentHash)
 		err = r.checkRedeem(int32(info.BlockHeight), inProgressRedeem, txMap)
 		if err != nil {
 			log.Printf("checkRedeem - payment hash %s failed: %v", inProgressRedeem.PaymentHash, err)
