@@ -435,9 +435,11 @@ func main() {
 	go registerPastBoltzReverseSwapTxNotifications()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	swapFeeService := swapper.NewFeeService()
+	swapFeeService.Start(ctx)
 	redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
-		updateSubswapTxid, updateSubswapPreimage, getInProgressRedeems,
-		setSubswapConfirmed)
+		swapFeeService, updateSubswapTxid, updateSubswapPreimage,
+		getInProgressRedeems, setSubswapConfirmed)
 	redeemer.Start(ctx)
 
 	lsp.InitLSP()
