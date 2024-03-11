@@ -115,14 +115,13 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 	}
 
 	var minAllowedDeposit int64
-	ct := 12
-	fees, err := s.walletKitClient.EstimateFee(clientCtx, &walletrpc.EstimateFeeRequest{ConfTarget: int32(ct)})
+	fees, err := s.feeService.GetFeeRate(3, 288)
 	if err != nil {
-		log.Printf("walletKitClient.EstimateFee(%v) error: %v", ct, err)
+		log.Printf("feeService.GetFeeRate(3, 288) error: %v", err)
 	} else {
-		log.Printf("walletKitClient.EstimateFee(%v): %v", ct, fees.SatPerKw)
+		log.Printf("feeService.GetFeeRate(3, 288): %v sat/vbyte", fees)
 		// Assume a weight of 1K for the transaction.
-		minAllowedDeposit = fees.SatPerKw * 3 / 2
+		minAllowedDeposit = int64(fees * 250 * 3 / 2)
 	}
 
 	address := subSwapServiceInitResponse.Address
