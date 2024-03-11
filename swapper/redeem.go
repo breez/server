@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/breez/server/bitcoind"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
@@ -29,6 +30,11 @@ const (
 	RedeemWitnessInputSize int32 = 1 + 1 + 73 + 1 + 32 + 1 + 100
 )
 
+type SwapWithoutPreimage struct {
+	PaymentHash        string
+	ConfirmationHeight int32
+}
+
 type InProgressRedeem struct {
 	PaymentHash        string
 	Preimage           *string
@@ -39,15 +45,16 @@ type InProgressRedeem struct {
 }
 
 type Redeemer struct {
-	network               *chaincfg.Params
-	ssClient              lnrpc.LightningClient
-	ssRouterClient        routerrpc.RouterClient
-	subswapClient         submarineswaprpc.SubmarineSwapperClient
-	feeService            *FeeService
-	updateSubswapTxid     func(paymentHash, txid string) error
-	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
-	getInProgressRedeems  func(blockheight int32) ([]*InProgressRedeem, error)
-	setSubswapConfirmed   func(paymentHash string) error
+	network                 *chaincfg.Params
+	ssClient                lnrpc.LightningClient
+	ssRouterClient          routerrpc.RouterClient
+	subswapClient           submarineswaprpc.SubmarineSwapperClient
+	feeService              *FeeService
+	updateSubswapTxid       func(paymentHash, txid string) error
+	updateSubswapPreimage   func(paymentHash, paymentPreimage string) error
+	getInProgressRedeems    func(blockheight int32) ([]*InProgressRedeem, error)
+	getSwapsWithoutPreimage func() ([]*SwapWithoutPreimage, error)
+	setSubswapConfirmed     func(paymentHash string) error
 }
 
 func NewRedeemer(
@@ -59,24 +66,103 @@ func NewRedeemer(
 	updateSubswapTxid func(paymentHash, txid string) error,
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	getInProgressRedeems func(blockheight int32) ([]*InProgressRedeem, error),
+	getSwapsWithoutPreimage func() ([]*SwapWithoutPreimage, error),
 	setSubswapConfirmed func(paymentHash string) error,
 ) *Redeemer {
 	return &Redeemer{
-		network:               network,
-		ssClient:              ssClient,
-		ssRouterClient:        ssRouterClient,
-		subswapClient:         subswapClient,
-		feeService:            feeService,
-		updateSubswapTxid:     updateSubswapTxid,
-		updateSubswapPreimage: updateSubswapPreimage,
-		getInProgressRedeems:  getInProgressRedeems,
-		setSubswapConfirmed:   setSubswapConfirmed,
+		network:                 network,
+		ssClient:                ssClient,
+		ssRouterClient:          ssRouterClient,
+		subswapClient:           subswapClient,
+		feeService:              feeService,
+		updateSubswapTxid:       updateSubswapTxid,
+		updateSubswapPreimage:   updateSubswapPreimage,
+		getInProgressRedeems:    getInProgressRedeems,
+		getSwapsWithoutPreimage: getSwapsWithoutPreimage,
+		setSubswapConfirmed:     setSubswapConfirmed,
 	}
 }
 
 func (r *Redeemer) Start(ctx context.Context) {
 	log.Printf("REDEEM - before r.watchRedeemTxns()")
 	go r.watchRedeemTxns(ctx)
+	go r.watchPreimages(ctx)
+}
+
+func (r *Redeemer) watchPreimages(ctx context.Context) {
+	for {
+		log.Printf("REDEEM - before checkPreimages()")
+		r.checkPreimages()
+
+		select {
+		case <-time.After(time.Minute * 30):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (r *Redeemer) checkPreimages() {
+	swaps, err := r.getSwapsWithoutPreimage()
+	if err != nil {
+		log.Printf("checkPreimages - Failed to getSwapsWithoutPreimage: %v", err)
+		return
+	}
+
+	if len(swaps) == 0 {
+		return
+	}
+
+	earliestHeight := swaps[0].ConfirmationHeight
+	t, err := bitcoind.GetDateForHeight(earliestHeight)
+	if err != nil {
+		log.Printf("checkPreimages - Failed to date for height %d: %v", earliestHeight, err)
+		return
+	}
+
+	// substract a day for leeway
+	time := t.Add(-time.Hour * 24)
+	log.Printf("checkPreimages - getting payments after %s", time.String())
+	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+	payments, err := r.ssClient.ListPayments(subswapClientCtx, &lnrpc.ListPaymentsRequest{
+		CreationDateStart: uint64(time.Unix()),
+	})
+	if err != nil {
+		log.Printf("checkPreimages - Failed to ListPayments: %v", err)
+		return
+	}
+	log.Printf("checkPreimages - getting payments after %s yielded %d payments", time.String(), len(payments.Payments))
+
+	swapLookup := make(map[string]bool, 0)
+	for _, swap := range swaps {
+		swapLookup[swap.PaymentHash] = true
+	}
+
+	newPreimages := make(map[string]string, 0)
+	for _, payment := range payments.Payments {
+		if payment.PaymentPreimage == "" {
+			continue
+		}
+
+		_, ok := swapLookup[payment.PaymentHash]
+		if !ok {
+			continue
+		}
+
+		newPreimages[payment.PaymentHash] = payment.PaymentPreimage
+	}
+
+	if len(newPreimages) == 0 {
+		log.Printf("checkPreimages - no new preimages")
+		return
+	}
+
+	for paymentHash, preimage := range newPreimages {
+		err = r.updateSubswapPreimage(paymentHash, preimage)
+		if err != nil {
+			log.Printf("checkPreimages - failed to update preimage %s for payment hash %s", preimage, paymentHash)
+		}
+	}
 }
 
 func (r *Redeemer) watchRedeemTxns(ctx context.Context) {

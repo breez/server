@@ -439,7 +439,7 @@ func main() {
 	swapFeeService.Start(ctx)
 	redeemer := swapper.NewRedeemer(network, ssClient, ssRouterClient, subswapClient,
 		swapFeeService, updateSubswapTxid, updateSubswapPreimage,
-		getInProgressRedeems, setSubswapConfirmed)
+		getInProgressRedeems, getSwapsWithoutPreimage, setSubswapConfirmed)
 	redeemer.Start(ctx)
 
 	lsp.InitLSP()
