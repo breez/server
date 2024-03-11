@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ type Server struct {
 	ssClient              lnrpc.LightningClient
 	subswapClient         submarineswaprpc.SubmarineSwapperClient
 	redeemer              *Redeemer
+	feeService            *FeeService
 	walletKitClient       walletrpc.WalletKitClient
 	ssRouterClient        routerrpc.RouterClient
 	insertSubswapPayment  func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error
@@ -53,6 +55,7 @@ func NewServer(
 	client, ssClient lnrpc.LightningClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
 	redeemer *Redeemer,
+	feeService *FeeService,
 	walletKitClient walletrpc.WalletKitClient,
 	ssRouterClient routerrpc.RouterClient,
 	insertSubswapPayment func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error,
@@ -66,6 +69,7 @@ func NewServer(
 		ssClient:              ssClient,
 		subswapClient:         subswapClient,
 		redeemer:              redeemer,
+		feeService:            feeService,
 		walletKitClient:       walletKitClient,
 		ssRouterClient:        ssRouterClient,
 		insertSubswapPayment:  insertSubswapPayment,
@@ -230,16 +234,19 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
 	}
 
-	fees, err := s.subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
-		Hash:       decodedPayReq.PaymentHash[:],
-		TargetConf: 30,
-	})
+	satPerVbyte, err := s.feeService.GetFeeRate(3, utxos.LockHeight)
 	if err != nil {
-		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
+		log.Printf("GetSwapPayment - GetFeeRate error: %v", err)
 		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
 	}
-	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
-	if 2*utxos.Amount < 3*fees.Amount {
+	weight, err := s.redeemer.RedeemWeight(utxos.Utxos)
+	if err != nil {
+		log.Printf("GetSwapPayment - RedeemWeight error: %v", err)
+		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
+	}
+	fees := int64(math.Ceil((satPerVbyte * float64(weight)) / 4))
+	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees, utxos.Amount, decodedAmt)
+	if 2*utxos.Amount < 3*fees {
 		log.Println("GetSwapPayment - utxo amount less than 1.5 fees. Cannot proceed")
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,

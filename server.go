@@ -437,7 +437,7 @@ func main() {
 	defer cancel()
 	swapFeeService := swapper.NewFeeService()
 	swapFeeService.Start(ctx)
-	redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
+	redeemer := swapper.NewRedeemer(network, ssClient, ssRouterClient, subswapClient,
 		swapFeeService, updateSubswapTxid, updateSubswapPreimage,
 		getInProgressRedeems, setSubswapConfirmed)
 	redeemer.Start(ctx)
@@ -518,8 +518,9 @@ func main() {
 	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspList)
 	breez.RegisterSupportServer(s, supportServer)
 
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer,
+		swapFeeService, ssWalletKitClient, ssRouterClient, insertSubswapPayment,
+		updateSubswapPreimage, hasFilteredAddress)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{

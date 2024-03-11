@@ -5,13 +5,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -19,8 +24,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const SwapLockTime = 288
-const MinConfirmations = 6
+const (
+	MinConfirmations             = 6
+	RedeemWitnessInputSize int32 = 1 + 1 + 73 + 1 + 32 + 1 + 100
+)
 
 type InProgressRedeem struct {
 	PaymentHash        string
@@ -32,6 +39,7 @@ type InProgressRedeem struct {
 }
 
 type Redeemer struct {
+	network               *chaincfg.Params
 	ssClient              lnrpc.LightningClient
 	ssRouterClient        routerrpc.RouterClient
 	subswapClient         submarineswaprpc.SubmarineSwapperClient
@@ -43,6 +51,7 @@ type Redeemer struct {
 }
 
 func NewRedeemer(
+	network *chaincfg.Params,
 	ssClient lnrpc.LightningClient,
 	ssRouterClient routerrpc.RouterClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
@@ -53,6 +62,7 @@ func NewRedeemer(
 	setSubswapConfirmed func(paymentHash string) error,
 ) *Redeemer {
 	return &Redeemer{
+		network:               network,
 		ssClient:              ssClient,
 		ssRouterClient:        ssRouterClient,
 		subswapClient:         subswapClient,
@@ -269,4 +279,51 @@ func (r *Redeemer) doRedeem(preimage []byte, targetConf int32, satPerByte int64)
 	}
 
 	return redeem.Txid, err
+}
+
+func (r *Redeemer) RedeemWeight(utxos []*submarineswaprpc.UnspentAmountResponse_Utxo) (int32, error) {
+	if len(utxos) == 0 {
+		return 0, errors.New("no utxo")
+	}
+
+	redeemTx := wire.NewMsgTx(1)
+
+	// Add the inputs without the witness and calculate the amount to redeem
+	var amount btcutil.Amount
+	for _, utxo := range utxos {
+		txid, err := chainhash.NewHashFromStr(utxo.Txid)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse txid: %w", err)
+		}
+		outpoint := &wire.OutPoint{
+			Hash:  *txid,
+			Index: utxo.Index,
+		}
+		amount += btcutil.Amount(utxo.Amount)
+		txIn := wire.NewTxIn(outpoint, nil, nil)
+		txIn.Sequence = 0
+		redeemTx.AddTxIn(txIn)
+	}
+
+	//Generate a random address
+	privateKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return 0, err
+	}
+	redeemAddress, err := btcutil.NewAddressPubKey(privateKey.PubKey().SerializeCompressed(), r.network)
+	if err != nil {
+		return 0, err
+	}
+	// Add the single output
+	redeemScript, err := txscript.PayToAddrScript(redeemAddress)
+	if err != nil {
+		return 0, err
+	}
+	txOut := wire.TxOut{PkScript: redeemScript}
+	redeemTx.AddTxOut(&txOut)
+	redeemTx.LockTime = uint32(833000) // fake block height
+
+	// Calcluate the weight and the fee
+	weight := 4*int32(redeemTx.SerializeSizeStripped()) + RedeemWitnessInputSize*int32(len(redeemTx.TxIn))
+	return weight, nil
 }
