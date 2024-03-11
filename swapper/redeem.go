@@ -158,7 +158,7 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	if len(txns) == 0 {
 		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
 		return nil
-		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft)
+		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft, inProgressRedeem.LockHeight)
 		// return err
 	}
 
@@ -192,13 +192,13 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 		}
 	}
 
-	satPerVbyte, err := r.feeService.GetFeeRate(blocksLeft)
+	satPerVbyte, err := r.feeService.GetFeeRate(blocksLeft, inProgressRedeem.LockHeight)
 	if err != nil {
 		log.Printf("failed to get redeem fee rate: %v", err)
 		// If there is a problem getting the fees, try to bump the tx on best effort.
 		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
 		return nil
-		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft)
+		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft, inProgressRedeem.LockHeight)
 		// return err
 	}
 
@@ -231,8 +231,8 @@ func getWeight(tx *lnrpc.Transaction) (int64, error) {
 	return weight, nil
 }
 
-func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32) (string, error) {
-	rate, err := r.feeService.GetFeeRate(blocks)
+func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32, locktime int32) (string, error) {
+	rate, err := r.feeService.GetFeeRate(blocks, locktime)
 	if err != nil {
 		log.Printf("RedeemWithinBlocks(%x, %d) - getFeeRate error: %v", preimage, blocks, err)
 	}

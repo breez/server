@@ -32,7 +32,7 @@ func (f *FeeService) Start(ctx context.Context) {
 	go f.watchFeeRate(ctx)
 }
 
-func (f *FeeService) GetFeeRate(blocks int32) (float64, error) {
+func (f *FeeService) GetFeeRate(blocks int32, locktime int32) (float64, error) {
 	f.mtx.RLock()
 	defer f.mtx.RUnlock()
 
@@ -49,10 +49,10 @@ func (f *FeeService) GetFeeRate(blocks int32) (float64, error) {
 	}
 
 	// get the block between 0 and SwapLockTime
-	b := math.Min(math.Max(0, float64(blocks)), SwapLockTime)
+	b := math.Min(math.Max(0, float64(blocks)), float64(locktime))
 
 	// certainty is linear between 0.5 and 1 based on the amount of blocks left
-	certainty := 0.5 + (((SwapLockTime - b) / SwapLockTime) / 2)
+	certainty := 0.5 + (((float64(locktime) - b) / float64(locktime)) / 2)
 
 	// Get the row closest to the amount of blocks left
 	rowIndex := 0
