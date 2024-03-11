@@ -40,6 +40,10 @@ func (f *FeeService) GetFeeRate(blocks int32) (float64, error) {
 		return 0, fmt.Errorf("still no fees")
 	}
 
+	if f.feesLastUpdated.Before(time.Now().Add(-time.Hour)) {
+		return 0, fmt.Errorf("fees are stale")
+	}
+
 	if len(f.currentFees.Index) < 1 {
 		return 0, fmt.Errorf("empty row index")
 	}
