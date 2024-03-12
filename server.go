@@ -509,7 +509,7 @@ func main() {
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 10, 20, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 100, 2000, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 1000, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 1000, 100000, 86400),
 		),
 	)
 
