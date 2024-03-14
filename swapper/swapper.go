@@ -312,11 +312,13 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("GetSwapPayment - ResetMissionControl paymentRequest: %v, error: %v", in.PaymentRequest, err)
 	}
 	sendResponse, err := s.ssClient.SendPaymentSync(subswapClientCtx, &lnrpc.SendRequest{PaymentRequest: in.PaymentRequest})
-	if err != nil || sendResponse.PaymentError != "" {
-		if sendResponse != nil && sendResponse.PaymentError != "" {
-			err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
-		}
-		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, Preimage: %x, error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentPreimage, err)
+	if err != nil {
+		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, error: %v", in.PaymentRequest, decodedAmt, err)
+		return nil, err
+	}
+	if sendResponse.PaymentError != "" {
+		err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
+		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, Preimage: %x error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentPreimage, err)
 		return nil, err
 	}
 
