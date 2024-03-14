@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/jackc/pgtype v1.14.0
-	github.com/jackc/pgx/v5 v5.4.3
+	github.com/jackc/pgx/v5 v5.5.4
 	github.com/joho/godotenv v1.2.0
 	github.com/lightningnetwork/lnd v0.16.2-beta
 	github.com/pkg/errors v0.9.1
