@@ -85,8 +85,6 @@ github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4 h1:8mdW/G5bEJbTjaQ9cbs
 github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4/go.mod h1:dG529kzhIfB2W9PWFRo7/mldB3m+M1TTHgPZcAfQj2Y=
 github.com/breez/lnd v0.15.0-beta.rc6.0.20230902183744-9e3f322824f5 h1:gKBs4GTU0PrBYaFeiZfClewnKrFet+6gkREmhdksS10=
 github.com/breez/lnd v0.15.0-beta.rc6.0.20230902183744-9e3f322824f5/go.mod h1:l04L2mp9cltG6sTCFjiMtKaMSTGK5Z1wIhohffsOmr8=
-github.com/breez/lspd v0.0.0-20231018093410-5ea4be093d03 h1:xi6JGMg99mznD2hXi8u3Twyb5MQd0/cqQ0/4NbQbGwI=
-github.com/breez/lspd v0.0.0-20231018093410-5ea4be093d03/go.mod h1:8sdQmNLCYm4AR6rRI0V9BESeTDBtjOy5zg2/WG6Lz58=
 github.com/btcsuite/btcd v0.0.0-20190824003749-130ea5bddde3/go.mod h1:3J08xEfcugPacsc34/LKRU2yO7YmuT8yt28J8k2+rrI=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.22.0-beta.0.20220111032746-97732e52810c/go.mod h1:tjmYdS6MLJ5/s0Fj4DbLgSbDHbEqLJrtnHecBFkdz5M=
@@ -1238,8 +1236,8 @@ google.golang.org/protobuf v1.25.0/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlba
 google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp09yW+WbY/TyQbw=
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.27.1/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
-google.golang.org/protobuf v1.31.0 h1:g0LDEJHgrBl9N9r17Ru3sqWhkIx2NB67okBHPwC7hs8=
-google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
+google.golang.org/protobuf v1.33.0 h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=
+google.golang.org/protobuf v1.33.0/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20160105164936-4f90aeace3a2/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
