@@ -22,7 +22,7 @@ func GetSenderAddresses(destTxs []string) ([]string, error) {
 	for _, txid := range destTxs {
 		t, err := bc.GetRawTransaction(txid, true)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			continue
 		}
 		rawtx, ok := t.(gbitcoind.RawTransaction)
 		if !ok {
@@ -31,7 +31,7 @@ func GetSenderAddresses(destTxs []string) ([]string, error) {
 		for _, vin := range rawtx.Vin {
 			tin, err := bc.GetRawTransaction(vin.Txid, true)
 			if err != nil {
-				log.Fatalf("error: %v", err)
+				continue
 			}
 			rawtin, ok := tin.(gbitcoind.RawTransaction)
 			if !ok {
