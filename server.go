@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image/png"
@@ -74,6 +75,7 @@ type server struct {
 	breez.UnimplementedPushTxNotifierServer
 	breez.UnimplementedInactiveNotifierServer
 	breez.UnimplementedNodeInfoServer
+	chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 }
 
 // RegisterDevice implements breez.InvoicerServer
@@ -344,6 +346,10 @@ func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 	return nodeChannels, nil
 }
 
+func (s *server) ChainApiServers(ctx context.Context, in *breez.ChainApiServersRequest) (*breez.ChainApiServersReply, error) {
+	return &breez.ChainApiServersReply{Servers: s.chainApiServers}, nil
+}
+
 func main() {
 
 	switch os.Getenv("NETWORK") {
@@ -462,6 +468,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/Rates", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 10000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 100000, 10000000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ChainApiServers", 10000, 100000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ChainApiServers", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 1000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 100000, 1000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/AddFundInit", 20, 200, 86400),
@@ -523,11 +531,15 @@ func main() {
 	lspServer := &lsp.Server{
 		DBLSPList: lspList,
 	}
+
+	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
+	informationServer := &server{chainApiServers: chainApiServers}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})
 	breez.RegisterPosServer(s, &server{})
-	breez.RegisterInformationServer(s, &server{})
+	breez.RegisterInformationServer(s, informationServer)
 	breez.RegisterCardOrdererServer(s, &server{})
 	breez.RegisterFundManagerServer(s, &server{})
 	breez.RegisterCTPServer(s, &server{})
