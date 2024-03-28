@@ -5,18 +5,19 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
-	"math"
-	"net/http"
 	"os"
-	"strconv"
-	"sync"
 	"time"
 
+	"github.com/breez/server/bitcoind"
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -24,8 +25,15 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const SwapLockTime = 288
-const MinConfirmations = 6
+const (
+	MinConfirmations             = 6
+	RedeemWitnessInputSize int32 = 1 + 1 + 73 + 1 + 32 + 1 + 100
+)
+
+type SwapWithoutPreimage struct {
+	PaymentHash        string
+	ConfirmationHeight int32
+}
 
 type InProgressRedeem struct {
 	PaymentHash        string
@@ -37,61 +45,122 @@ type InProgressRedeem struct {
 }
 
 type Redeemer struct {
-	ssClient              lnrpc.LightningClient
-	ssRouterClient        routerrpc.RouterClient
-	subswapClient         submarineswaprpc.SubmarineSwapperClient
-	updateSubswapTxid     func(paymentHash, txid string) error
-	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
-	getInProgressRedeems  func(blockheight int32) ([]*InProgressRedeem, error)
-	setSubswapConfirmed   func(paymentHash string) error
-	feesLastUpdated       time.Time
-	currentFees           *whatthefeeBody
-	mtx                   sync.RWMutex
+	network                 *chaincfg.Params
+	ssClient                lnrpc.LightningClient
+	ssRouterClient          routerrpc.RouterClient
+	subswapClient           submarineswaprpc.SubmarineSwapperClient
+	feeService              *FeeService
+	updateSubswapTxid       func(paymentHash, txid string) error
+	updateSubswapPreimage   func(paymentHash, paymentPreimage string) error
+	getInProgressRedeems    func(blockheight int32) ([]*InProgressRedeem, error)
+	getSwapsWithoutPreimage func() ([]*SwapWithoutPreimage, error)
+	setSubswapConfirmed     func(paymentHash string) error
 }
 
 func NewRedeemer(
+	network *chaincfg.Params,
 	ssClient lnrpc.LightningClient,
 	ssRouterClient routerrpc.RouterClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
+	feeService *FeeService,
 	updateSubswapTxid func(paymentHash, txid string) error,
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	getInProgressRedeems func(blockheight int32) ([]*InProgressRedeem, error),
+	getSwapsWithoutPreimage func() ([]*SwapWithoutPreimage, error),
 	setSubswapConfirmed func(paymentHash string) error,
 ) *Redeemer {
 	return &Redeemer{
-		ssClient:              ssClient,
-		ssRouterClient:        ssRouterClient,
-		subswapClient:         subswapClient,
-		updateSubswapTxid:     updateSubswapTxid,
-		updateSubswapPreimage: updateSubswapPreimage,
-		getInProgressRedeems:  getInProgressRedeems,
-		setSubswapConfirmed:   setSubswapConfirmed,
+		network:                 network,
+		ssClient:                ssClient,
+		ssRouterClient:          ssRouterClient,
+		subswapClient:           subswapClient,
+		feeService:              feeService,
+		updateSubswapTxid:       updateSubswapTxid,
+		updateSubswapPreimage:   updateSubswapPreimage,
+		getInProgressRedeems:    getInProgressRedeems,
+		getSwapsWithoutPreimage: getSwapsWithoutPreimage,
+		setSubswapConfirmed:     setSubswapConfirmed,
 	}
 }
 
 func (r *Redeemer) Start(ctx context.Context) {
 	log.Printf("REDEEM - before r.watchRedeemTxns()")
 	go r.watchRedeemTxns(ctx)
-	go r.watchFeeRate(ctx)
+	go r.watchPreimages(ctx)
 }
 
-func (r *Redeemer) watchFeeRate(ctx context.Context) {
+func (r *Redeemer) watchPreimages(ctx context.Context) {
 	for {
-		now := time.Now()
-		fees, err := r.getFees()
-		if err != nil {
-			log.Printf("failed to get current chain fee rates: %v", err)
-		} else {
-			r.mtx.Lock()
-			r.currentFees = fees
-			r.feesLastUpdated = now
-			r.mtx.Unlock()
-		}
+		log.Printf("REDEEM - before checkPreimages()")
+		r.checkPreimages()
 
 		select {
-		case <-time.After(time.Minute * 5):
+		case <-time.After(time.Minute * 30):
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func (r *Redeemer) checkPreimages() {
+	swaps, err := r.getSwapsWithoutPreimage()
+	if err != nil {
+		log.Printf("checkPreimages - Failed to getSwapsWithoutPreimage: %v", err)
+		return
+	}
+
+	if len(swaps) == 0 {
+		return
+	}
+
+	earliestHeight := swaps[0].ConfirmationHeight
+	t, err := bitcoind.GetDateForHeight(earliestHeight)
+	if err != nil {
+		log.Printf("checkPreimages - Failed to date for height %d: %v", earliestHeight, err)
+		return
+	}
+
+	// substract a day for leeway
+	time := t.Add(-time.Hour * 24)
+	log.Printf("checkPreimages - getting payments after %s", time.String())
+	subswapClientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+	payments, err := r.ssClient.ListPayments(subswapClientCtx, &lnrpc.ListPaymentsRequest{
+		CreationDateStart: uint64(time.Unix()),
+	})
+	if err != nil {
+		log.Printf("checkPreimages - Failed to ListPayments: %v", err)
+		return
+	}
+	log.Printf("checkPreimages - getting payments after %s yielded %d payments", time.String(), len(payments.Payments))
+
+	swapLookup := make(map[string]bool, 0)
+	for _, swap := range swaps {
+		swapLookup[swap.PaymentHash] = true
+	}
+
+	newPreimages := make(map[string]string, 0)
+	for _, payment := range payments.Payments {
+		if payment.PaymentPreimage == "" {
+			continue
+		}
+
+		_, ok := swapLookup[payment.PaymentHash]
+		if !ok {
+			continue
+		}
+
+		newPreimages[payment.PaymentHash] = payment.PaymentPreimage
+	}
+
+	if len(newPreimages) == 0 {
+		log.Printf("checkPreimages - no new preimages")
+		return
+	}
+
+	for paymentHash, preimage := range newPreimages {
+		err = r.updateSubswapPreimage(paymentHash, preimage)
+		if err != nil {
+			log.Printf("checkPreimages - failed to update preimage %s for payment hash %s", preimage, paymentHash)
 		}
 	}
 }
@@ -107,95 +176,6 @@ func (r *Redeemer) watchRedeemTxns(ctx context.Context) {
 			return
 		}
 	}
-}
-
-type whatthefeeBody struct {
-	Index   []int32   `json:"index"`
-	Columns []string  `json:"columns"`
-	Data    [][]int32 `json:"data"`
-}
-
-func (r *Redeemer) getFees() (*whatthefeeBody, error) {
-	now := time.Now().Unix()
-	cacheBust := (now / 300) * 300
-	resp, err := http.Get(
-		fmt.Sprintf("https://whatthefee.io/data.json?c=%d", cacheBust),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call whatthefee.io: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var body whatthefeeBody
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode whatthefee.io response: %w", err)
-	}
-
-	return &body, nil
-}
-
-func (r *Redeemer) getFeeRate(blocks int32) (float64, error) {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
-
-	if r.currentFees == nil {
-		return 0, fmt.Errorf("still no fees")
-	}
-
-	if len(r.currentFees.Index) < 1 {
-		return 0, fmt.Errorf("empty row index")
-	}
-
-	// get the block between 0 and SwapLockTime
-	b := math.Min(math.Max(0, float64(blocks)), SwapLockTime)
-
-	// certainty is linear between 0.5 and 1 based on the amount of blocks left
-	certainty := 0.5 + (((SwapLockTime - b) / SwapLockTime) / 2)
-
-	// Get the row closest to the amount of blocks left
-	rowIndex := 0
-	prevRow := r.currentFees.Index[rowIndex]
-	for i := 1; i < len(r.currentFees.Index); i++ {
-		current := r.currentFees.Index[i]
-		if math.Abs(float64(current)-b) < math.Abs(float64(prevRow)-b) {
-			rowIndex = i
-			prevRow = current
-		}
-	}
-
-	if len(r.currentFees.Columns) < 1 {
-		return 0, fmt.Errorf("empty column index")
-	}
-
-	// Get the column closest to the certainty
-	columnIndex := 0
-	prevColumn, err := strconv.ParseFloat(r.currentFees.Columns[columnIndex], 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid column content '%s'", r.currentFees.Columns[columnIndex])
-	}
-	for i := 1; i < len(r.currentFees.Columns); i++ {
-		current, err := strconv.ParseFloat(r.currentFees.Columns[i], 64)
-		if err != nil {
-			return 0, fmt.Errorf("invalid column content '%s'", r.currentFees.Columns[i])
-		}
-		if math.Abs(current-certainty) < math.Abs(prevColumn-certainty) {
-			columnIndex = i
-			prevColumn = current
-		}
-	}
-
-	if rowIndex >= len(r.currentFees.Data) {
-		return 0, fmt.Errorf("could not find fee rate column in whatthefee.io response")
-	}
-	row := r.currentFees.Data[rowIndex]
-	if columnIndex >= len(row) {
-		return 0, fmt.Errorf("could not find fee rate column in whatthefee.io response")
-	}
-
-	rate := row[columnIndex]
-	satPerVByte := math.Exp(float64(rate) / 100)
-	return satPerVByte, nil
 }
 
 func (r *Redeemer) checkRedeems() {
@@ -274,7 +254,7 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	if len(txns) == 0 {
 		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
 		return nil
-		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft)
+		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft, inProgressRedeem.LockHeight)
 		// return err
 	}
 
@@ -308,13 +288,13 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 		}
 	}
 
-	satPerVbyte, err := r.getFeeRate(blocksLeft)
+	satPerVbyte, err := r.feeService.GetFeeRate(blocksLeft, inProgressRedeem.LockHeight)
 	if err != nil {
 		log.Printf("failed to get redeem fee rate: %v", err)
 		// If there is a problem getting the fees, try to bump the tx on best effort.
 		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
 		return nil
-		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft)
+		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft, inProgressRedeem.LockHeight)
 		// return err
 	}
 
@@ -347,8 +327,8 @@ func getWeight(tx *lnrpc.Transaction) (int64, error) {
 	return weight, nil
 }
 
-func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32) (string, error) {
-	rate, err := r.getFeeRate(blocks)
+func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32, locktime int32) (string, error) {
+	rate, err := r.feeService.GetFeeRate(blocks, locktime)
 	if err != nil {
 		log.Printf("RedeemWithinBlocks(%x, %d) - getFeeRate error: %v", preimage, blocks, err)
 	}
@@ -385,4 +365,51 @@ func (r *Redeemer) doRedeem(preimage []byte, targetConf int32, satPerByte int64)
 	}
 
 	return redeem.Txid, err
+}
+
+func (r *Redeemer) RedeemWeight(utxos []*submarineswaprpc.UnspentAmountResponse_Utxo) (int32, error) {
+	if len(utxos) == 0 {
+		return 0, errors.New("no utxo")
+	}
+
+	redeemTx := wire.NewMsgTx(1)
+
+	// Add the inputs without the witness and calculate the amount to redeem
+	var amount btcutil.Amount
+	for _, utxo := range utxos {
+		txid, err := chainhash.NewHashFromStr(utxo.Txid)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse txid: %w", err)
+		}
+		outpoint := &wire.OutPoint{
+			Hash:  *txid,
+			Index: utxo.Index,
+		}
+		amount += btcutil.Amount(utxo.Amount)
+		txIn := wire.NewTxIn(outpoint, nil, nil)
+		txIn.Sequence = 0
+		redeemTx.AddTxIn(txIn)
+	}
+
+	//Generate a random address
+	privateKey, err := btcec.NewPrivateKey()
+	if err != nil {
+		return 0, err
+	}
+	redeemAddress, err := btcutil.NewAddressPubKey(privateKey.PubKey().SerializeCompressed(), r.network)
+	if err != nil {
+		return 0, err
+	}
+	// Add the single output
+	redeemScript, err := txscript.PayToAddrScript(redeemAddress)
+	if err != nil {
+		return 0, err
+	}
+	txOut := wire.TxOut{PkScript: redeemScript}
+	redeemTx.AddTxOut(&txOut)
+	redeemTx.LockTime = uint32(833000) // fake block height
+
+	// Calcluate the weight and the fee
+	weight := 4*int32(redeemTx.SerializeSizeStripped()) + RedeemWitnessInputSize*int32(len(redeemTx.TxIn))
+	return weight, nil
 }

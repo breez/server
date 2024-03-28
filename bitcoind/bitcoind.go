@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	gbitcoind "github.com/toorop/go-bitcoind"
 )
@@ -59,4 +60,28 @@ func GetSenderAddresses(destTxs []string) ([]string, error) {
 		err = fmt.Errorf("failed to get some addresses")
 	}
 	return addrs, err
+}
+
+func GetDateForHeight(height int32) (*time.Time, error) {
+	bitcoindPort, err := strconv.Atoi(os.Getenv("BITCOIND_PORT"))
+	if err != nil {
+		return nil, fmt.Errorf("no valid port for bitcoind: %v", os.Getenv("BITCOIND_PORT"))
+	}
+	bc, err := gbitcoind.New(os.Getenv("BITCOIND_HOST"), bitcoindPort, os.Getenv("BITCOIND_USER"), os.Getenv("BITCOIND_PASSWORD"), false)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create a bitcoind client: %w", err)
+	}
+
+	hash, err := bc.GetBlockHash(uint64(height))
+	if err != nil {
+		return nil, fmt.Errorf("error getting block hash: %w", err)
+	}
+
+	header, err := bc.GetBlockheader(hash)
+	if err != nil {
+		return nil, fmt.Errorf("error getting block header: %w", err)
+	}
+
+	t := time.Unix(header.Time, 0)
+	return &t, nil
 }

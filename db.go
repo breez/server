@@ -67,6 +67,40 @@ func insertSubswapPayment(paymentHash, paymentRequest string, lockheight, confir
 	return nil
 }
 
+func getSwapsWithoutPreimage() ([]*swapper.SwapWithoutPreimage, error) {
+	rows, err := pgxPool.Query(context.Background(),
+		`SELECT payment_hash
+		 FROM swap_payments
+		 WHERE redeem_confirmed = false
+		 	AND payment_preimage is null
+		 ORDER BY confirmation_height
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query swap_payments: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*swapper.SwapWithoutPreimage
+	for rows.Next() {
+		var payment_hash string
+		var confirmation_height int32
+		err = rows.Scan(
+			&payment_hash,
+			&confirmation_height,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("rows.Scan() error: %w", err)
+		}
+
+		result = append(result, &swapper.SwapWithoutPreimage{
+			PaymentHash:        payment_hash,
+			ConfirmationHeight: confirmation_height,
+		})
+	}
+
+	return result, nil
+}
+
 func getInProgressRedeems(blockheight int32) ([]*swapper.InProgressRedeem, error) {
 	ignoreBefore := blockheight - (288 * 14)
 	rows, err := pgxPool.Query(context.Background(),
