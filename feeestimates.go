@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -29,6 +30,7 @@ func genFeeEstimates(hash string) {
 		r, err := walletKitClient.EstimateFee(clientCtx, &walletrpc.EstimateFeeRequest{ConfTarget: int32(ct)})
 		if err != nil {
 			log.Printf("walletKitClient.EstimateFee(%v): %v", ct, err)
+			return
 		}
 		fees := uint32(r.SatPerKw * blockchain.WitnessScaleFactor)
 		if fees < minFees {
@@ -48,20 +50,29 @@ func genFeeEstimates(hash string) {
 }
 
 func startFeeEstimates() {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	stream, err := chainNotifierClient.RegisterBlockEpochNtfn(clientCtx, &chainrpc.BlockEpoch{})
-	if err != nil {
-		log.Printf("chainNotifierClient.RegisterBlockEpochNtfn: %v", err)
-	}
 	go func() {
 		for {
-			block, err := stream.Recv()
+			clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+			stream, err := chainNotifierClient.RegisterBlockEpochNtfn(clientCtx, &chainrpc.BlockEpoch{})
 			if err != nil {
-				log.Printf("stream.Recv: %v", err)
-				return
+				log.Printf("startFeeEstimates: chainNotifierClient.RegisterBlockEpochNtfn: %v", err)
+				<-time.After(time.Second * 10)
+				continue
 			}
-			c, _ := chainhash.NewHash(block.Hash)
-			genFeeEstimates(c.String())
+
+			for {
+				block, err := stream.Recv()
+				if err != nil {
+					log.Printf("startFeeEstimates: stream.Recv: %v", err)
+					break
+				}
+				c, err := chainhash.NewHash(block.Hash)
+				if err != nil {
+					log.Printf("startFeeEstimates: chainhash.NewHash(%x) err: %v", block.Hash, err)
+					continue
+				}
+				genFeeEstimates(c.String())
+			}
 		}
 	}()
 }
