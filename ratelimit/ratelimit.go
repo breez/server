@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func getIP(ctx context.Context) string {
+func getIP(ctx context.Context, proxyAddress string) string {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		log.Printf("peer error.")
@@ -25,11 +25,11 @@ func getIP(ctx context.Context) string {
 	case *net.TCPAddr:
 		srcIP = addr.IP.String()
 	}
-	if srcIP == "127.0.0.1" {
+	if srcIP == proxyAddress {
 		md, ok := metadata.FromIncomingContext(ctx)
 		//log.Println(ok, md)
 		if ok {
-			realIP := md["x-real-ip"]
+			realIP := md["x-forwarded-for"]
 			if len(realIP) > 0 {
 				srcIP = realIP[0]
 			}
@@ -77,12 +77,12 @@ func UnaryRateLimiter(redisPool *redis.Pool, prefix, fullMethod string, maxBurst
 	}
 }
 
-func PerIPUnaryRateLimiter(redisPool *redis.Pool, prefix, fullMethod string, maxBurst, tokens, seconds uint) grpc.UnaryServerInterceptor {
+func PerIPUnaryRateLimiter(redisPool *redis.Pool, proxyAddress, prefix, fullMethod string, maxBurst, tokens, seconds uint) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if info.FullMethod != fullMethod {
 			return handler(ctx, req)
 		}
-		srcIP := getIP(ctx)
+		srcIP := getIP(ctx, proxyAddress)
 		blocked, limit, remaining, retryAfter, reset := getThrottle(redisPool, prefix+"/ip/"+srcIP+"/method"+info.FullMethod, maxBurst, tokens, seconds)
 		if blocked {
 			_, _, _, _ = limit, remaining, retryAfter, reset //Need to add headers
