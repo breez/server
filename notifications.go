@@ -59,7 +59,6 @@ func notifyDataMessage(data map[string]string, token string) error {
 		},
 	})
 
-	log.Printf("Data Notification Status = %v, Error = %v", status, err)
 	return err
 }
 
