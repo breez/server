@@ -41,7 +41,7 @@ func notifyDataMessage(data map[string]string, token string) error {
 		iosCustomData[key] = value
 	}
 
-	status, err := client.Send(context.Background(), &messaging.Message{
+	_, err = client.Send(context.Background(), &messaging.Message{
 		Token: token,
 		Data:  data,
 		Android: &messaging.AndroidConfig{
