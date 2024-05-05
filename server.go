@@ -423,70 +423,15 @@ func main() {
 	}
 	go HTTPServer.Serve(lisHTTP)
 
-	// Creds file to connect to LND gRPC
-	cp := x509.NewCertPool()
-	if !cp.AppendCertsFromPEM([]byte(strings.Replace(os.Getenv("LND_CERT"), "\\n", "\n", -1))) {
-		log.Fatalf("credentials: failed to append certificates")
-	}
-	creds := credentials.NewClientTLSFromCert(cp, "")
-
-	// Address of an LND instance
-	conn, err := grpc.Dial(os.Getenv("LND_ADDRESS"), grpc.WithTransportCredentials(creds))
-	if err != nil {
-		log.Fatalf("Failed to connect to LND gRPC: %v", err)
-	}
-	defer conn.Close()
-	client = lnrpc.NewLightningClient(conn)
-	walletKitClient = walletrpc.NewWalletKitClient(conn)
-	chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
-
-	ssCp := x509.NewCertPool()
-	if !ssCp.AppendCertsFromPEM([]byte(strings.Replace(os.Getenv("SUBSWAPPER_LND_CERT"), "\\n", "\n", -1))) {
-		log.Fatalf("credentials: failed to append certificates")
-	}
-	ssCreds := credentials.NewClientTLSFromCert(ssCp, "")
-	// Address of an LND instance
-	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(ssCreds), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(128*1024*1024)))
-	if err != nil {
-		log.Fatalf("Failed to connect to LND gRPC: %v", err)
-	}
-	defer subswapConn.Close()
-	ssClient = lnrpc.NewLightningClient(subswapConn)
-	subswapClient = submarineswaprpc.NewSubmarineSwapperClient(subswapConn)
-	ssWalletKitClient = walletrpc.NewWalletKitClient(subswapConn)
-	ssRouterClient = routerrpc.NewRouterClient(subswapConn)
-
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	go subscribeTransactions(ctx, client)
-	go handlePastTransactions(ctx, client)
-	go subscribeChannelAcceptor(ctx, client, os.Getenv("LND_CHANNEL_ACCEPTOR"))
-
-	ssCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
-	go subscribeTransactions(ssCtx, ssClient)
-	go handlePastTransactions(ssCtx, ssClient)
-	go subscribeChannelAcceptor(ssCtx, ssClient, os.Getenv("SUBSWAPPER_LND_CHANNEL_ACCEPTOR"))
-
-	startFeeEstimates()
-
 	err = redisConnect()
 	if err != nil {
 		log.Println("redisConnect error:", err)
 	}
-	go deliverSyncNotifications()
 
 	err = pgConnect()
 	if err != nil {
 		log.Printf("pgConnect error: %v", err)
 	}
-	go registerPastBoltzReverseSwapTxNotifications()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
-		updateSubswapTxid, updateSubswapPreimage, getInProgressRedeems,
-		setSubswapConfirmed)
-	redeemer.Start(ctx)
-
-	lsp.InitLSP()
 
 	proxyAddress := os.Getenv("PROXY_ADDRESS")
 	s := grpc.NewServer(
@@ -573,12 +518,77 @@ func main() {
 		),
 	)
 
+	skipLnd, _ := strconv.ParseBool(os.Getenv("NO_LND"))
+	if !skipLnd {
+
+		// Creds file to connect to LND gRPC
+		cp := x509.NewCertPool()
+		if !cp.AppendCertsFromPEM([]byte(strings.Replace(os.Getenv("LND_CERT"), "\\n", "\n", -1))) {
+			log.Fatalf("credentials: failed to append certificates")
+		}
+		creds := credentials.NewClientTLSFromCert(cp, "")
+
+		// Address of an LND instance
+		conn, err := grpc.Dial(os.Getenv("LND_ADDRESS"), grpc.WithTransportCredentials(creds))
+		if err != nil {
+			log.Fatalf("Failed to connect to LND gRPC: %v", err)
+		}
+		defer conn.Close()
+		client = lnrpc.NewLightningClient(conn)
+		walletKitClient = walletrpc.NewWalletKitClient(conn)
+		chainNotifierClient = chainrpc.NewChainNotifierClient(conn)
+
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+		go subscribeTransactions(ctx, client)
+		go handlePastTransactions(ctx, client)
+		go subscribeChannelAcceptor(ctx, client, os.Getenv("LND_CHANNEL_ACCEPTOR"))
+
+		startFeeEstimates()
+		go registerPastBoltzReverseSwapTxNotifications()
+	}
+
+	skipSubswap, _ := strconv.ParseBool(os.Getenv("NO_SUBSWAP"))
+	if !skipSubswap {
+		ssCp := x509.NewCertPool()
+		if !ssCp.AppendCertsFromPEM([]byte(strings.Replace(os.Getenv("SUBSWAPPER_LND_CERT"), "\\n", "\n", -1))) {
+			log.Fatalf("credentials: failed to append certificates")
+		}
+		ssCreds := credentials.NewClientTLSFromCert(ssCp, "")
+		// Address of an LND instance
+		subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(ssCreds), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(128*1024*1024)))
+		if err != nil {
+			log.Fatalf("Failed to connect to LND gRPC: %v", err)
+		}
+		defer subswapConn.Close()
+		ssClient = lnrpc.NewLightningClient(subswapConn)
+		subswapClient = submarineswaprpc.NewSubmarineSwapperClient(subswapConn)
+		ssWalletKitClient = walletrpc.NewWalletKitClient(subswapConn)
+		ssRouterClient = routerrpc.NewRouterClient(subswapConn)
+
+		ctx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
+		go subscribeTransactions(ctx, client)
+		go handlePastTransactions(ctx, client)
+		go subscribeChannelAcceptor(ctx, client, os.Getenv("LND_CHANNEL_ACCEPTOR"))
+
+		ssCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("SUBSWAPPER_LND_MACAROON_HEX"))
+		go subscribeTransactions(ssCtx, ssClient)
+		go handlePastTransactions(ssCtx, ssClient)
+		go subscribeChannelAcceptor(ssCtx, ssClient, os.Getenv("SUBSWAPPER_LND_CHANNEL_ACCEPTOR"))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
+			updateSubswapTxid, updateSubswapPreimage, getInProgressRedeems,
+			setSubswapConfirmed)
+		redeemer.Start(ctx)
+
+		swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
+			insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
+		breez.RegisterSwapperServer(s, swapperServer)
+	}
+
 	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspFullList)
 	breez.RegisterSupportServer(s, supportServer)
-
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
-	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{
 		DBLSPList:     lspList,
