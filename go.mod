@@ -7,10 +7,10 @@ require (
 	firebase.google.com/go v3.7.0+incompatible
 	github.com/aws/aws-sdk-go v1.49.0
 	github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4
-	github.com/btcsuite/btcd v0.23.5-0.20230228185050-38331963bddd
+	github.com/btcsuite/btcd v0.24.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
-	github.com/btcsuite/btcd/btcutil v1.1.3
-	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
+	github.com/btcsuite/btcd/btcutil v1.1.5
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/gomodule/redigo v2.0.1-0.20180627144507-2cd21d9966bf+incompatible
 	github.com/google/uuid v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -75,7 +75,7 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0 // indirect
