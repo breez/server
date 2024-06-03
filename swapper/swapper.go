@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ type Server struct {
 	ssClient              lnrpc.LightningClient
 	subswapClient         submarineswaprpc.SubmarineSwapperClient
 	redeemer              *Redeemer
+	feeService            *FeeService
 	walletKitClient       walletrpc.WalletKitClient
 	ssRouterClient        routerrpc.RouterClient
 	insertSubswapPayment  func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error
@@ -53,6 +55,7 @@ func NewServer(
 	client, ssClient lnrpc.LightningClient,
 	subswapClient submarineswaprpc.SubmarineSwapperClient,
 	redeemer *Redeemer,
+	feeService *FeeService,
 	walletKitClient walletrpc.WalletKitClient,
 	ssRouterClient routerrpc.RouterClient,
 	insertSubswapPayment func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error,
@@ -66,6 +69,7 @@ func NewServer(
 		ssClient:              ssClient,
 		subswapClient:         subswapClient,
 		redeemer:              redeemer,
+		feeService:            feeService,
 		walletKitClient:       walletKitClient,
 		ssRouterClient:        ssRouterClient,
 		insertSubswapPayment:  insertSubswapPayment,
@@ -111,14 +115,13 @@ func (s *Server) addFundInit(ctx context.Context, in *breez.AddFundInitRequest, 
 	}
 
 	var minAllowedDeposit int64
-	ct := 12
-	fees, err := s.walletKitClient.EstimateFee(clientCtx, &walletrpc.EstimateFeeRequest{ConfTarget: int32(ct)})
+	fees, err := s.feeService.GetFeeRate(3, 288)
 	if err != nil {
-		log.Printf("walletKitClient.EstimateFee(%v) error: %v", ct, err)
+		log.Printf("feeService.GetFeeRate(3, 288) error: %v", err)
 	} else {
-		log.Printf("walletKitClient.EstimateFee(%v): %v", ct, fees.SatPerKw)
+		log.Printf("feeService.GetFeeRate(3, 288): %v sat/vbyte", fees)
 		// Assume a weight of 1K for the transaction.
-		minAllowedDeposit = fees.SatPerKw * 3 / 2
+		minAllowedDeposit = int64(fees * 250 * 3 / 2)
 	}
 
 	address := subSwapServiceInitResponse.Address
@@ -230,16 +233,19 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, status.Errorf(codes.Internal, "there are no UTXOs related to payment request")
 	}
 
-	fees, err := s.subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
-		Hash:       decodedPayReq.PaymentHash[:],
-		TargetConf: 30,
-	})
+	satPerVbyte, err := s.feeService.GetFeeRate(3, utxos.LockHeight)
 	if err != nil {
-		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
+		log.Printf("GetSwapPayment - GetFeeRate error: %v", err)
 		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
 	}
-	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees.Amount, utxos.Amount, decodedAmt)
-	if 2*utxos.Amount < 3*fees.Amount {
+	weight, err := s.redeemer.RedeemWeight(utxos.Utxos)
+	if err != nil {
+		log.Printf("GetSwapPayment - RedeemWeight error: %v", err)
+		return nil, status.Errorf(codes.Internal, "couldn't determine the redeem transaction fees")
+	}
+	fees := int64(math.Ceil((satPerVbyte * float64(weight)) / 4))
+	log.Printf("GetSwapPayment - SubSwapServiceRedeemFees: %v for amount in utxos: %v amount in payment request: %v", fees, utxos.Amount, decodedAmt)
+	if 2*utxos.Amount < 3*fees {
 		log.Println("GetSwapPayment - utxo amount less than 1.5 fees. Cannot proceed")
 		return &breez.GetSwapPaymentReply{
 			FundsExceededLimit: true,
@@ -327,7 +333,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("Failed to update subswap preimage '%x' for payment hash '%x', error: %v", sendResponse.PaymentPreimage, sendResponse.PaymentHash, err)
 	}
 
-	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-minHeight)
+	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-minHeight, utxos.LockHeight)
 	if err != nil {
 		log.Printf("RedeemWithinBlocks - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
 	}

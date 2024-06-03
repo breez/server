@@ -441,9 +441,11 @@ func main() {
 	go registerPastBoltzReverseSwapTxNotifications()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	redeemer := swapper.NewRedeemer(ssClient, ssRouterClient, subswapClient,
-		updateSubswapTxid, updateSubswapPreimage, getInProgressRedeems,
-		setSubswapConfirmed)
+	swapFeeService := swapper.NewFeeService()
+	swapFeeService.Start(ctx)
+	redeemer := swapper.NewRedeemer(network, ssClient, ssRouterClient, subswapClient,
+		swapFeeService, updateSubswapTxid, updateSubswapPreimage,
+		getInProgressRedeems, getSwapsWithoutPreimage, setSubswapConfirmed)
 	redeemer.Start(ctx)
 
 	lsp.InitLSP()
@@ -525,8 +527,9 @@ func main() {
 	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspList)
 	breez.RegisterSupportServer(s, supportServer)
 
-	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
-		insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
+	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer,
+		swapFeeService, ssWalletKitClient, ssRouterClient, insertSubswapPayment,
+		updateSubswapPreimage, hasFilteredAddress)
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{
