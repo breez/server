@@ -327,7 +327,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		log.Printf("Failed to update subswap preimage '%x' for payment hash '%x', error: %v", sendResponse.PaymentPreimage, sendResponse.PaymentHash, err)
 	}
 
-	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, int32(chainInfo.BlockHeight)-minHeight)
+	_, err = s.redeemer.RedeemWithinBlocks(sendResponse.PaymentPreimage, utxos.LockHeight-(int32(chainInfo.BlockHeight)-minHeight))
 	if err != nil {
 		log.Printf("RedeemWithinBlocks - couldn't redeem transaction for preimage: %x, error: %v", sendResponse.PaymentPreimage, err)
 	}
