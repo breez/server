@@ -16,6 +16,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -24,6 +26,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/breez/server/auth"
 	"github.com/breez/server/breez"
+	"github.com/breez/server/liquid"
 	"github.com/breez/server/lsp"
 	"github.com/breez/server/ratelimit"
 	"github.com/breez/server/signer"
@@ -52,6 +55,7 @@ const (
 	imageDimensionLength = 200
 	channelAmount        = 1000000
 	minRemoveFund        = 50000
+	liquidAPIPrefix      = "/liquid/api"
 )
 
 var client, ssClient lnrpc.LightningClient
@@ -370,11 +374,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+	liquidEsploraBaseURL, err := url.Parse(os.Getenv("LIQUID_ESPLORA_API_BASE_URL"))
+	if err != nil {
+		log.Fatalf("Failed to parse %v: %v", os.Getenv("LIQUID_ESPLORA_API_BASE_URL"), err)
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/fees/v1/btc-fee-estimates.json", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(feeEstimates))
 	})
+	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(liquidAPIPrefix, proxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.MempoolHandler(liquidAPIPrefix, proxy, liquidEsploraBaseURL))
 	HTTPServer := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
