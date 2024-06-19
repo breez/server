@@ -379,14 +379,17 @@ func main() {
 		log.Fatalf("Failed to parse %v: %v", os.Getenv("LIQUID_ESPLORA_API_BASE_URL"), err)
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/fees/v1/btc-fee-estimates.json", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(feeEstimates))
 	})
-	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(liquidAPIPrefix, proxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.MempoolHandler(liquidAPIPrefix, proxy, liquidEsploraBaseURL))
+	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
+	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
+	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
+	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.MempoolHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	HTTPServer := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
@@ -545,8 +548,6 @@ func main() {
 		DBLSPList: lspList,
 	}
 
-	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
-	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
 	informationServer := &server{chainApiServers: chainApiServers}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
