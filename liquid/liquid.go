@@ -55,7 +55,7 @@ func BroadcastHandler(chainApiServers []*breez.ChainApiServersReply_ChainAPIServ
 			baseURL := cs.ServerBaseUrl
 			u, err := url.Parse(baseURL)
 			if err != nil {
-				log.Printf("Error %v when parsing swapper URL: %v", err, baseURL)
+				log.Printf("Liquid: Error %v when parsing swapper URL: %v", err, baseURL)
 				continue
 			}
 			u.RawQuery = ""
@@ -65,19 +65,20 @@ func BroadcastHandler(chainApiServers []*breez.ChainApiServersReply_ChainAPIServ
 		}
 	}
 	if apiURL == "" {
-		log.Fatal("No api URL found")
+		log.Fatal("Liquid: No api URL found")
 	}
 	fc := fastcache.New(100_000_000)
 	return func(w http.ResponseWriter, r *http.Request) {
 		swapID := r.Header.Get("Swap-ID")
 		body, err := io.ReadAll(io.LimitReader(r.Body, 100_000))
 		if err != nil {
+			log.Printf("Liquid: error reading body: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		err = checkSwapId(fc, apiURL, swapID, body)
 		if err != nil {
-			log.Printf("Error when checking swapID=%v : %v", swapID, err)
+			log.Printf("Liquid: error when checking swapID=%v : %v", swapID, err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
