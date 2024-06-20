@@ -69,7 +69,12 @@ func BroadcastHandler(chainApiServers []*breez.ChainApiServersReply_ChainAPIServ
 	}
 	fc := fastcache.New(100_000_000)
 	return func(w http.ResponseWriter, r *http.Request) {
-		swapID := r.Header.Get("Swap-ID")
+		swapID := r.Header.Get("Swap-Id")
+		if swapID == "" {
+			log.Printf("Liquid: No swapID")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		body, err := io.ReadAll(io.LimitReader(r.Body, 100_000))
 		if err != nil {
 			log.Printf("Liquid: error reading body: %v", err)
