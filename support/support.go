@@ -17,16 +17,16 @@ type Server struct {
 	breezrpc.UnimplementedSupportServer
 	emailNotifier func(in *breezrpc.ReportPaymentFailureRequest, keys []string) error
 	getStatus     func() (string, error)
-	DBLSPList     func(keys []string) ([]string, error)
+	DBLSPFullList func(keys []string) ([]string, []string, error)
 }
 
 func NewServer(emailNotifier func(in *breezrpc.ReportPaymentFailureRequest, keys []string) error,
 	getStatus func() (string, error),
-	DBLSPList func(keys []string) ([]string, error)) *Server {
+	DBLSPFullList func(keys []string) ([]string, []string, error)) *Server {
 	return &Server{
 		emailNotifier: emailNotifier,
 		getStatus:     getStatus,
-		DBLSPList:     DBLSPList,
+		DBLSPFullList: DBLSPFullList,
 	}
 }
 
@@ -58,12 +58,12 @@ func (s *Server) BreezStatus(ctx context.Context, in *breezrpc.BreezStatusReques
 
 func (s *Server) validateRequest(ctx context.Context) ([]string, error) {
 	keys := auth.GetHeaderKeys(ctx)
-	list, err := s.DBLSPList(keys)
+	active, _, err := s.DBLSPFullList(keys)
 	if err != nil {
 		log.Printf("Error in DBLSPList(%#v): %v", keys, err)
 		return []string{}, status.Errorf(codes.PermissionDenied, "Not authorized")
 	}
-	if len(list) == 0 {
+	if len(active) == 0 {
 		log.Printf("No lsps found: %#v", keys)
 		return []string{}, status.Errorf(codes.PermissionDenied, "Not authorized")
 	}

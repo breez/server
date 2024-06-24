@@ -295,7 +295,7 @@ func lspList(apiKeys []string) ([]string, error) {
 	var member void
 
 	rows, err := pgxPool.Query(context.Background(),
-		`SELECT lsp_ids, api_user FROM api_keys
+		`SELECT COALESCE(lsp_ids->'active', lsp_ids) as lsp_ids, api_user FROM api_keys
 			WHERE api_key = ANY($1)`, apiKeys)
 	if err != nil {
 		log.Printf("error in pgxPool.Query: %v", err)
@@ -321,4 +321,50 @@ func lspList(apiKeys []string) ([]string, error) {
 		lspList = append(lspList, l)
 	}
 	return lspList, nil
+}
+
+func lspFullList(apiKeys []string) ([]string, []string, error) {
+	type void struct{}
+	var member void
+
+	rows, err := pgxPool.Query(context.Background(),
+		`SELECT
+			COALESCE(lsp_ids->'active', lsp_ids) as active_lsp_ids,
+			COALESCE(lsp_ids->'inactive','[]') as inactive_lsp_ids,
+			api_user
+		FROM api_keys
+        WHERE api_key = ANY($1)`, apiKeys)
+	if err != nil {
+		log.Printf("error in pgxPool.Query: %v", err)
+		return nil, nil, fmt.Errorf("error in pgxPool.Query: %w", err)
+	}
+	defer rows.Close()
+	var activeWithDups, inactiveWithDups []string
+	for rows.Next() {
+		var thisActive, thisInactive []string
+		var apiUser string
+		err = rows.Scan(&thisActive, &thisInactive, &apiUser)
+		if err != nil {
+			log.Printf("error in rows.Scan: %v", err)
+			continue
+		}
+		log.Printf("active ids: %#v, inactive ids: %#v, user: %#v", thisActive, thisInactive, apiUser)
+		activeWithDups = append(activeWithDups, thisActive...)
+		inactiveWithDups = append(inactiveWithDups, thisInactive...)
+	}
+	lspSet := make(map[string]void)
+	var active, inactive []string
+	for _, l := range activeWithDups {
+		if _, ok := lspSet[l]; !ok {
+			active = append(active, l)
+			lspSet[l] = member
+		}
+	}
+	for _, l := range inactiveWithDups {
+		if _, ok := lspSet[l]; !ok {
+			inactive = append(inactive, l)
+			lspSet[l] = member
+		}
+	}
+	return active, inactive, nil
 }

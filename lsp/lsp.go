@@ -25,7 +25,8 @@ import (
 type Server struct {
 	breez.UnimplementedChannelOpenerServer
 	breez.UnimplementedPaymentNotifierServer
-	DBLSPList func(keys []string) ([]string, error)
+	DBLSPList     func(keys []string) ([]string, error)
+	DBLSPFullList func(keys []string) ([]string, []string, error)
 }
 
 // lspdLSP represents the infos about a LSP running lspd
@@ -159,6 +160,93 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 	}
 	for id, c := range lspConf.LnurlList {
 		r.Lsps[id] = &breez.LSPInformation{Name: c.Name, WidgetUrl: c.WidgetURL}
+	}
+	return &r, nil
+}
+
+// LSPFullList returns the list of active lsps
+func (s *Server) LSPFullList(ctx context.Context, in *breez.LSPFullListRequest) (*breez.LSPFullListReply, error) {
+	r := breez.LSPFullListReply{Lsps: []*breez.LSPInformation{}}
+	keys := auth.GetHeaderKeys(ctx)
+	active, inactive, err := s.DBLSPFullList(keys)
+	if err != nil {
+		log.Printf("Error in DBLSPList(%#v): %v", keys, err)
+		return &r, fmt.Errorf("error in DBLSPList(%#v): %w", keys, err)
+	}
+	for _, id := range active {
+		c, ok := lspdClients[id]
+		if !ok {
+			continue
+		}
+		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspConf.LspdList[id].Token)
+		ci, err := c.channelOpenerClient.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.Pubkey})
+		if err != nil {
+			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
+		} else {
+			log.Printf("ChannelInformation: %#v", ci)
+			var menu []*breez.OpeningFeeParams
+			for _, params := range ci.OpeningFeeParamsMenu {
+				menu = append(menu, &breez.OpeningFeeParams{
+					MinMsat:              params.MinMsat,
+					Proportional:         params.Proportional,
+					ValidUntil:           params.ValidUntil,
+					MaxIdleTime:          params.MaxIdleTime,
+					MaxClientToSelfDelay: params.MaxClientToSelfDelay,
+					Promise:              params.Promise,
+				})
+			}
+			li := &breez.LSPInformation{
+				Name:                  ci.Name,
+				Pubkey:                ci.Pubkey,
+				Host:                  ci.Host,
+				ChannelCapacity:       ci.ChannelCapacity,
+				TargetConf:            ci.TargetConf,
+				BaseFeeMsat:           ci.BaseFeeMsat,
+				FeeRate:               ci.FeeRate,
+				TimeLockDelta:         ci.TimeLockDelta,
+				MinHtlcMsat:           ci.MinHtlcMsat,
+				ChannelFeePermyriad:   ci.ChannelFeePermyriad,
+				ChannelMinimumFeeMsat: ci.ChannelMinimumFeeMsat,
+				LspPubkey:             ci.LspPubkey,
+				MaxInactiveDuration:   ci.MaxInactiveDuration,
+				OpeningFeeParamsMenu:  menu,
+				Id:                    id,
+			}
+			r.Lsps = append(r.Lsps, li)
+		}
+	}
+	for _, id := range inactive {
+		c, ok := lspdClients[id]
+		if !ok {
+			continue
+		}
+		clientCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+lspConf.LspdList[id].Token)
+		ci, err := c.channelOpenerClient.ChannelInformation(clientCtx, &lspdrpc.ChannelInformationRequest{Pubkey: in.Pubkey})
+		if err != nil {
+			log.Printf("Error in ChannelInformation for lsdp %v: %v", id, err)
+		} else {
+			log.Printf("ChannelInformation: %#v", ci)
+			li := &breez.LSPInformation{
+				Name:                  ci.Name,
+				Pubkey:                ci.Pubkey,
+				Host:                  ci.Host,
+				ChannelCapacity:       ci.ChannelCapacity,
+				TargetConf:            ci.TargetConf,
+				BaseFeeMsat:           ci.BaseFeeMsat,
+				FeeRate:               ci.FeeRate,
+				TimeLockDelta:         ci.TimeLockDelta,
+				MinHtlcMsat:           ci.MinHtlcMsat,
+				ChannelFeePermyriad:   ci.ChannelFeePermyriad,
+				ChannelMinimumFeeMsat: ci.ChannelMinimumFeeMsat,
+				LspPubkey:             ci.LspPubkey,
+				MaxInactiveDuration:   ci.MaxInactiveDuration,
+				Id:                    id,
+			}
+			r.Lsps = append(r.Lsps, li)
+		}
+	}
+	for id, c := range lspConf.LnurlList {
+		r.Lsps = append(r.Lsps, &breez.LSPInformation{Name: c.Name, WidgetUrl: c.WidgetURL, Id: id})
 	}
 	return &r, nil
 }

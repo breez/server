@@ -516,6 +516,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/TerminateCTPSession", 1000, 100000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPList", 10000, 10000000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.ChannelOpener/LSPFullList", 10000, 10000000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.ChannelOpener/LSPFullList", 10000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 10, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.PushTxNotifier/RegisterTxNotification", 1000, 1000, 86400),
 
@@ -537,7 +539,7 @@ func main() {
 		),
 	)
 
-	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspList)
+	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspFullList)
 	breez.RegisterSupportServer(s, supportServer)
 
 	swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
@@ -545,7 +547,8 @@ func main() {
 	breez.RegisterSwapperServer(s, swapperServer)
 
 	lspServer := &lsp.Server{
-		DBLSPList: lspList,
+		DBLSPList:     lspList,
+		DBLSPFullList: lspFullList,
 	}
 
 	informationServer := &server{chainApiServers: chainApiServers}

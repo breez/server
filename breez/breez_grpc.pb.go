@@ -566,6 +566,7 @@ var _Information_serviceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChannelOpenerClient interface {
 	LSPList(ctx context.Context, in *LSPListRequest, opts ...grpc.CallOption) (*LSPListReply, error)
+	LSPFullList(ctx context.Context, in *LSPFullListRequest, opts ...grpc.CallOption) (*LSPFullListReply, error)
 	RegisterPayment(ctx context.Context, in *RegisterPaymentRequest, opts ...grpc.CallOption) (*RegisterPaymentReply, error)
 	CheckChannels(ctx context.Context, in *CheckChannelsRequest, opts ...grpc.CallOption) (*CheckChannelsReply, error)
 }
@@ -581,6 +582,15 @@ func NewChannelOpenerClient(cc grpc.ClientConnInterface) ChannelOpenerClient {
 func (c *channelOpenerClient) LSPList(ctx context.Context, in *LSPListRequest, opts ...grpc.CallOption) (*LSPListReply, error) {
 	out := new(LSPListReply)
 	err := c.cc.Invoke(ctx, "/breez.ChannelOpener/LSPList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *channelOpenerClient) LSPFullList(ctx context.Context, in *LSPFullListRequest, opts ...grpc.CallOption) (*LSPFullListReply, error) {
+	out := new(LSPFullListReply)
+	err := c.cc.Invoke(ctx, "/breez.ChannelOpener/LSPFullList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -610,6 +620,7 @@ func (c *channelOpenerClient) CheckChannels(ctx context.Context, in *CheckChanne
 // for forward compatibility
 type ChannelOpenerServer interface {
 	LSPList(context.Context, *LSPListRequest) (*LSPListReply, error)
+	LSPFullList(context.Context, *LSPFullListRequest) (*LSPFullListReply, error)
 	RegisterPayment(context.Context, *RegisterPaymentRequest) (*RegisterPaymentReply, error)
 	CheckChannels(context.Context, *CheckChannelsRequest) (*CheckChannelsReply, error)
 	mustEmbedUnimplementedChannelOpenerServer()
@@ -621,6 +632,9 @@ type UnimplementedChannelOpenerServer struct {
 
 func (UnimplementedChannelOpenerServer) LSPList(context.Context, *LSPListRequest) (*LSPListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LSPList not implemented")
+}
+func (UnimplementedChannelOpenerServer) LSPFullList(context.Context, *LSPFullListRequest) (*LSPFullListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LSPFullList not implemented")
 }
 func (UnimplementedChannelOpenerServer) RegisterPayment(context.Context, *RegisterPaymentRequest) (*RegisterPaymentReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterPayment not implemented")
@@ -655,6 +669,24 @@ func _ChannelOpener_LSPList_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChannelOpenerServer).LSPList(ctx, req.(*LSPListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChannelOpener_LSPFullList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LSPFullListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChannelOpenerServer).LSPFullList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/breez.ChannelOpener/LSPFullList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChannelOpenerServer).LSPFullList(ctx, req.(*LSPFullListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -702,6 +734,10 @@ var _ChannelOpener_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LSPList",
 			Handler:    _ChannelOpener_LSPList_Handler,
+		},
+		{
+			MethodName: "LSPFullList",
+			Handler:    _ChannelOpener_LSPFullList_Handler,
 		},
 		{
 			MethodName: "RegisterPayment",

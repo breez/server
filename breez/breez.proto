@@ -31,6 +31,7 @@ service Information {
 
 service ChannelOpener {
   rpc LSPList (LSPListRequest) returns (LSPListReply) {}
+  rpc LSPFullList (LSPFullListRequest) returns (LSPFullListReply) {}
   rpc RegisterPayment (RegisterPaymentRequest) returns (RegisterPaymentReply) {}
   rpc CheckChannels(CheckChannelsRequest) returns (CheckChannelsReply) {}
 }
@@ -138,6 +139,11 @@ message LSPListRequest {
   /// The identity pubkey of the client
   string pubkey = 2 [json_name = "pubkey"];
 }
+
+message LSPFullListRequest {
+  /// The identity pubkey of the client
+  string pubkey = 1 [json_name = "pubkey"];
+}
 message LSPInformation {
   /// The name of of lsp
   string name = 1 [json_name = "name"];
@@ -173,6 +179,8 @@ message LSPInformation {
   int64 channel_minimum_fee_msat = 14 [deprecated = true];
 
   repeated OpeningFeeParams opening_fee_params_menu = 15;
+
+  string id = 16;
 }
 message OpeningFeeParams {
   /// The minimum value in millisatoshi we will require for incoming HTLCs on the channel.
@@ -188,6 +196,10 @@ message OpeningFeeParams {
 }
 message LSPListReply {
   map<string, LSPInformation> lsps = 1; // The key is the lsp id
+}
+
+message LSPFullListReply {
+  repeated LSPInformation lsps = 1;
 }
 
 message RegisterPaymentRequest {
@@ -244,12 +256,12 @@ message AddFundStatusReply {
     bool confirmed = 3;
     string blockHash = 4;
   }
-  map<string, AddressStatus> statuses = 1;  
+  map<string, AddressStatus> statuses = 1;
 }
 
 message RemoveFundRequest {
   string address = 1;
-  int64 amount = 2;  
+  int64 amount = 2;
 }
 
 message RemoveFundReply {
@@ -376,7 +388,7 @@ message JoinCTPSessionRequest {
     PAYER = 0;
     PAYEE = 1;
   }
-  
+
   PartyType partyType = 1;
   string partyName = 2;
   string notificationToken = 3;
@@ -397,11 +409,11 @@ message TerminateCTPSessionResponse {}
 message RegisterTransactionConfirmationRequest {
   enum NotificationType {
     READY_RECEIVE_PAYMENT = 0;
-    CHANNEL_OPENED = 1;    
+    CHANNEL_OPENED = 1;
   }
 
   string txID = 1;
-  string notificationToken = 2; 
+  string notificationToken = 2;
   NotificationType notificationType = 3;
 }
 
@@ -450,7 +462,7 @@ message ReportPaymentFailureRequest {
   string node_id = 3;
   // The currently used lsp id
   string lsp_id = 4;
-  // The ISO 8601 timestamp 
+  // The ISO 8601 timestamp
   string timestamp = 5;
   // The optional comment/error response text
   string comment = 6;
