@@ -325,9 +325,8 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 
 	// Attempt to redeem again with the higher fees.
 	log.Printf("RedeemWithFees - preimage: %x, blocksLeft: %v fee: %v", preimage, blocksLeft, satPerVbyte)
-	return nil
-	// _, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
-	// return err
+	_, err = r.RedeemWithFees(preimage, blocksLeft, int64(satPerVbyte))
+	return err
 }
 
 func getWeight(tx *lnrpc.Transaction) (int64, error) {

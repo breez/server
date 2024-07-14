@@ -232,7 +232,7 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 
 	fees, err := s.subswapClient.SubSwapServiceRedeemFees(subswapClientCtx, &submarineswaprpc.SubSwapServiceRedeemFeesRequest{
 		Hash:       decodedPayReq.PaymentHash[:],
-		TargetConf: 30,
+		TargetConf: 6,
 	})
 	if err != nil {
 		log.Printf("GetSwapPayment - SubSwapServiceRedeemFees error: %v", err)
