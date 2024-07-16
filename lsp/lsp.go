@@ -164,7 +164,7 @@ func (s *Server) LSPList(ctx context.Context, in *breez.LSPListRequest) (*breez.
 	return &r, nil
 }
 
-// LSPFullList returns the list of active lsps
+// LSPFullList returns the list of active and historical (inactive) lsps
 func (s *Server) LSPFullList(ctx context.Context, in *breez.LSPFullListRequest) (*breez.LSPFullListReply, error) {
 	r := breez.LSPFullListReply{Lsps: []*breez.LSPInformation{}}
 	keys := auth.GetHeaderKeys(ctx)
