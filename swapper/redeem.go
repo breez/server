@@ -274,9 +274,8 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 	// Always redeem if there is no redeem tx yet.
 	if len(txns) == 0 {
 		log.Printf("RedeemWithinBlocks - preimage: %x, blocksLeft: %v", preimage, blocksLeft)
-		return nil
-		// _, err := r.RedeemWithinBlocks(preimage, blocksLeft)
-		// return err
+		_, err := r.RedeemWithinBlocks(preimage, blocksLeft)
+		return err
 	}
 
 	var bestTxSatPerVbyte float64
