@@ -362,7 +362,7 @@ func (r *Redeemer) RedeemWithFees(preimage []byte, targetConf int32, satPerVbyte
 func (r *Redeemer) doRedeem(preimage []byte, targetConf int32, satPerByte int64) (string, error) {
 	ph := sha256.Sum256(preimage)
 
-	if targetConf > 0 && satPerByte > 0 {
+	if satPerByte > 0 {
 		targetConf = 0
 	}
 
