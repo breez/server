@@ -421,7 +421,7 @@ func main() {
 	}
 	ssCreds := credentials.NewClientTLSFromCert(ssCp, "")
 	// Address of an LND instance
-	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(ssCreds))
+	subswapConn, err := grpc.Dial(os.Getenv("SUBSWAPPER_LND_ADDRESS"), grpc.WithTransportCredentials(ssCreds), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(128*1024*1024)))
 	if err != nil {
 		log.Fatalf("Failed to connect to LND gRPC: %v", err)
 	}
