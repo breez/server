@@ -205,7 +205,7 @@ func (r *Redeemer) checkRedeems() {
 
 	info, err := r.ssClient.GetInfo(subswapClientCtx, &lnrpc.GetInfoRequest{})
 	if err != nil {
-		log.Printf("Failed to GetInfo from subswap node: %v", err)
+		log.Printf("REDEEM - Failed to GetInfo from subswap node: %v", err)
 		return
 	}
 
@@ -215,6 +215,7 @@ func (r *Redeemer) checkRedeems() {
 		log.Printf("Failed to get in progress redeems: %v", err)
 		return
 	}
+	log.Printf("REDEEM - checkRedeems() after r.getInProgressRedeems(%v) - count: %v", int32(info.BlockHeight), len(inProgressRedeems))
 
 	syncHeight := int32(info.BlockHeight)
 	for _, inProgressRedeem := range inProgressRedeems {
@@ -229,7 +230,7 @@ func (r *Redeemer) checkRedeems() {
 		EndHeight:   -1,
 	})
 	if err != nil {
-		log.Printf("Failed to GetTransactions from subswap node: %v", err)
+		log.Printf("REDEEM - Failed to GetTransactions from subswap node: %v", err)
 		return
 	}
 
@@ -242,13 +243,13 @@ func (r *Redeemer) checkRedeems() {
 		log.Printf("REDEEM - checkRedeems() before checkRedeem(%v)", inProgressRedeem.PaymentHash)
 		err = r.checkRedeem(int32(info.BlockHeight), inProgressRedeem, txMap)
 		if err != nil {
-			log.Printf("checkRedeem - payment hash %s failed: %v", inProgressRedeem.PaymentHash, err)
+			log.Printf("REDEEM - checkRedeem - payment hash %s failed: %v", inProgressRedeem.PaymentHash, err)
 		}
 	}
 }
 
 func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRedeem, txMap map[string]*lnrpc.Transaction) error {
-	log.Printf("checkRedeem - payment hash %s", inProgressRedeem.PaymentHash)
+	log.Printf("REDEEM - checkRedeem - payment hash %s", inProgressRedeem.PaymentHash)
 	var txns []*lnrpc.Transaction
 	for _, txid := range inProgressRedeem.RedeemTxids {
 		tx, ok := txMap[txid]
