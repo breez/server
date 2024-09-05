@@ -390,6 +390,7 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
 	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.MempoolHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{hash}/hex"), liquid.MempoolHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	HTTPServer := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
