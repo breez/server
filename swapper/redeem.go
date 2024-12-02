@@ -156,9 +156,10 @@ func (r *Redeemer) getFeeRate(blocks int32) (float64, error) {
 	// Get the row closest to the amount of blocks left
 	rowIndex := 0
 	prevRow := r.currentFees.Index[rowIndex]
+	nb := math.Min(b, 24)
 	for i := 1; i < len(r.currentFees.Index); i++ {
 		current := r.currentFees.Index[i]
-		if math.Abs(float64(current)-b) < math.Abs(float64(prevRow)-b) {
+		if math.Abs(float64(current)-nb) < math.Abs(float64(prevRow)-nb) {
 			rowIndex = i
 			prevRow = current
 		}

@@ -68,7 +68,7 @@ func insertSubswapPayment(paymentHash, paymentRequest string, lockheight, confir
 }
 
 func getInProgressRedeems(blockheight int32) ([]*swapper.InProgressRedeem, error) {
-	ignoreBefore := blockheight - (288 * 14)
+	ignoreBefore := blockheight - (288 * 100)
 	rows, err := pgxPool.Query(context.Background(),
 		`SELECT payment_hash
 		 ,      payment_preimage
