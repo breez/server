@@ -160,20 +160,29 @@ func handleTransaction(tx *lnrpc.Transaction) error {
 }
 
 func registerTransacionConfirmation(txID, token, notifyType string) error {
+	registrationKey, err := doRegisterTransacionConfirmation(txID, token, notifyType)
+	if err != nil {
+		return err
+	}
+	err = setKeyExpiration(registrationKey, transactionNotificationExpiry)
+	return err
+}
+
+func doRegisterTransacionConfirmation(txID, token, notifyType string) (string, error) {
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
 	registrationKey := fmt.Sprintf("tx-notify-%v", txID)
 	registrationData := map[string]string{"token": token, "type": notifyType}
 	marshalled, err := json.Marshal(registrationData)
 	if err != nil {
-		return err
+		return "", err
 	}
 	_, err = redisConn.Do("SADD", registrationKey, string(marshalled))
 	if err != nil {
-		return err
+		return "", err
 	}
-	err = setKeyExpiration(registrationKey, transactionNotificationExpiry)
-	return err
+
+	return registrationKey, nil
 }
 
 func handleTransactionNotifications(tx *lnrpc.Transaction) error {
