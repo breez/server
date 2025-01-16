@@ -54,11 +54,15 @@ func getThrottle(redisPool *redis.Pool, key string, maxBurst, tokens, seconds ui
 	if err != nil {
 		log.Printf("getThrottle error: %v", err)
 	}
-	blocked = r[0] == 1
-	limit = r[1]
-	remaining = r[2]
-	retryAfter = r[3]
-	reset = r[4]
+	if len(r) >= 5 {
+		blocked = r[0] == 1
+		limit = r[1]
+		remaining = r[2]
+		retryAfter = r[3]
+		reset = r[4]
+	} else {
+		blocked = true
+	}
 	return
 }
 
