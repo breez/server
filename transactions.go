@@ -238,15 +238,13 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 		}
 		if n > 0 {
 			if tx.NumConfirmations > 0 {
-				err = handleTransactionAddress(tx, i)
+				err = handleTransactionAddress(tx, i, redisConn)
 				if err != nil {
 					return err
 				}
 				go notifyClientTransaction(tx, i, "Action Required", "Breez", "Received funds are now confirmed. Please open the app to complete your transaction.", true)
 				break // There is only one address concerning us per transaction
 			} else {
-				redisConn := redisPool.Get()
-				defer redisConn.Close()
 				_, err := redisConn.Do("HMSET", "input-address:"+tx.DestAddresses[i],
 					"utx:TxHash", tx.TxHash,
 					"utx:Amount", tx.Amount,
@@ -308,9 +306,7 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 	})
 }
 
-func handleTransactionAddress(tx *lnrpc.Transaction, index int) error {
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
+func handleTransactionAddress(tx *lnrpc.Transaction, index int, redisConn redis.Conn) error {
 	_, err := redisConn.Do("HMSET", "input-address:"+tx.DestAddresses[index],
 		"tx:TxHash", tx.TxHash,
 		"tx:Amount", tx.Amount,
