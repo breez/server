@@ -317,7 +317,12 @@ func (s *Server) getSwapPayment(ctx context.Context, in *breez.GetSwapPaymentReq
 		return nil, err
 	}
 	if sendResponse.PaymentError != "" {
-		err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
+		if strings.Contains(sendResponse.PaymentError, "no_route") {
+			err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError+" - TemporaryChannelFailure")
+		} else {
+			err = fmt.Errorf("error in payment response: %v", sendResponse.PaymentError)
+		}
+
 		log.Printf("GetSwapPayment - SendPaymentSync paymentRequest: %v, Amount: %v, Preimage: %x error: %v", in.PaymentRequest, decodedAmt, sendResponse.PaymentPreimage, err)
 		return nil, err
 	}
