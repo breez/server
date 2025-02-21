@@ -144,8 +144,53 @@ func BroadcastHandler(chainApiServers []*breez.ChainApiServersReply_ChainAPIServ
 	}
 }
 
-func MempoolHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) func(http.ResponseWriter, *http.Request) {
+func AuthenticatedHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) func(http.ResponseWriter, *http.Request) {
+	CACertBlock, _ := pem.Decode([]byte(os.Getenv("BREEZ_CA_CERT")))
+	if CACertBlock == nil {
+		log.Fatal("Breez CA cert invalid")
+	}
+	CACert, err := x509.ParseCertificate(CACertBlock.Bytes)
+	if err != nil {
+		log.Fatal("Cannot parse CA cert:", err)
+	}
+
+	rootPool := x509.NewCertPool()
+	rootPool.AddCert(CACert)
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("authorization")
+		if len(authHeader) < 8 || !strings.HasPrefix(authHeader, "Bearer ") {
+			log.Printf("No bearer data in authorization header: %v", authHeader)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		apiKey := authHeader[7:]
+		block, err := base64.StdEncoding.DecodeString(apiKey)
+		if err != nil {
+			log.Printf("base64.StdEncoding.DecodeString(apiKey) [%v] error: %v", apiKey, err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		cert, err := x509.ParseCertificate(block)
+		if err != nil {
+			log.Printf("Cannot parse cert: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		chains, err := cert.Verify(x509.VerifyOptions{
+			Roots: rootPool,
+		})
+		if err != nil {
+			log.Printf("cert.Verify error: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if len(chains) != 1 || len(chains[0]) != 2 || !chains[0][0].Equal(cert) || !chains[0][1].Equal(CACert) {
+			log.Printf("cert verification error")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		r.Host = u.Host
 		http.StripPrefix(prefix, p).ServeHTTP(w, r)
 	}
