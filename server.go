@@ -389,8 +389,8 @@ func main() {
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
 	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{hash}/hex"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{hash}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	HTTPServer := &http.Server{
 		Handler:        mux,

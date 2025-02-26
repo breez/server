@@ -143,6 +143,12 @@ func BroadcastHandler(chainApiServers []*breez.ChainApiServersReply_ChainAPIServ
 		http.StripPrefix(prefix, p).ServeHTTP(w, r)
 	}
 }
+func UnauthenticatedHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Host = u.Host
+		http.StripPrefix(prefix, p).ServeHTTP(w, r)
+	}
+}
 
 func AuthenticatedHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) func(http.ResponseWriter, *http.Request) {
 	CACertBlock, _ := pem.Decode([]byte(os.Getenv("BREEZ_CA_CERT")))
