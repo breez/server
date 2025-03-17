@@ -309,7 +309,7 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 		}
 	}
 
-	satPerVbyte, err := r.getFeeRate(blocksLeft)
+	satPerVbyteF, err := r.getFeeRate(blocksLeft)
 	if err != nil {
 		log.Printf("failed to get redeem fee rate: %v", err)
 		// If there is a problem getting the fees, try to bump the tx on best effort.
@@ -318,8 +318,9 @@ func (r *Redeemer) checkRedeem(blockHeight int32, inProgressRedeem *InProgressRe
 		// _, err = r.RedeemWithinBlocks(preimage, blocksLeft)
 		// return err
 	}
+	satPerVbyte := math.Ceil(satPerVbyteF)
 
-	if bestTxSatPerVbyte+1 >= float64(int64(satPerVbyte)) {
+	if bestTxSatPerVbyte+1 >= satPerVbyte {
 		// Fee has not increased enough, do nothing
 		return nil
 	}
@@ -353,7 +354,7 @@ func (r *Redeemer) RedeemWithinBlocks(preimage []byte, blocks int32) (string, er
 		log.Printf("RedeemWithinBlocks(%x, %d) - getFeeRate error: %v", preimage, blocks, err)
 	}
 
-	return r.doRedeem(preimage, blocks, int64(rate))
+	return r.doRedeem(preimage, blocks, int64(math.Ceil(rate)))
 }
 
 func (r *Redeemer) RedeemWithFees(preimage []byte, targetConf int32, satPerVbyte int64) (string, error) {
