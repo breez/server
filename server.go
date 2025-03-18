@@ -31,6 +31,7 @@ import (
 	"github.com/breez/server/ratelimit"
 	"github.com/breez/server/signer"
 	"github.com/breez/server/support"
+	"github.com/breez/server/swapd"
 	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -538,6 +539,15 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Support/BreezStatus", 100, 2000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/BreezStatus", 1000, 100000, 86400),
+
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.TaprootSwapper/CreateSwap", 20, 200, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/CreateSwap", 1000, 100000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.TaprootSwapper/PaySwap", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/PaySwap", 1000, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.TaprootSwapper/Refundwap", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/RefundSwap", 1000, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.TaprootSwapper/SwapParameters", 100, 1000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/SwapParameters", 1000, 10000, 86400),
 		),
 	)
 
@@ -553,6 +563,13 @@ func main() {
 		DBLSPFullList: lspFullList,
 	}
 
+	taprootSwapperConn, err := grpc.Dial(os.Getenv("SWAPD_ADDRESS"))
+	if err != nil {
+		log.Fatalf("Failed to connect to swapd gRPC: %v", err)
+	}
+	taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
+	taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
+
 	informationServer := &server{chainApiServers: chainApiServers}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
@@ -567,6 +584,7 @@ func main() {
 	breez.RegisterInactiveNotifierServer(s, &server{})
 	breez.RegisterNodeInfoServer(s, &server{})
 	breez.RegisterSignerServer(s, &signer.Server{})
+	breez.RegisterTaprootSwapperServer(s, taprootSwapperServer)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
