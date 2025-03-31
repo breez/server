@@ -392,8 +392,14 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
 	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{hash}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/raw"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/raw"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/header"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block-height/{height}"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	HTTPServer := &http.Server{
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
