@@ -41,6 +41,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
+	"github.com/rs/cors"
 
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
@@ -400,8 +401,9 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block-height/{height}"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	handler := cors.AllowAll().Handler(mux)
 	HTTPServer := &http.Server{
-		Handler:        mux,
+		Handler:        handler,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
