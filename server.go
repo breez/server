@@ -41,6 +41,7 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
+	"github.com/rs/cors"
 
 	"golang.org/x/text/message"
 	"google.golang.org/api/option"
@@ -392,10 +393,17 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
 	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{hash}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/header"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block-height/{height}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	handler := cors.AllowAll().Handler(mux)
 	HTTPServer := &http.Server{
-		Handler:        mux,
+		Handler:        handler,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,

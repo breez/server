@@ -5,6 +5,7 @@ go 1.22
 require (
 	cloud.google.com/go/storage v1.35.1
 	firebase.google.com/go v3.7.0+incompatible
+	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/aws/aws-sdk-go v1.49.0
 	github.com/breez/boltz v0.0.0-20230924045418-f934a24010d4
 	github.com/btcsuite/btcd v0.23.5-0.20230228185050-38331963bddd
@@ -19,6 +20,7 @@ require (
 	github.com/joho/godotenv v1.2.0
 	github.com/lightningnetwork/lnd v0.16.2-beta
 	github.com/pkg/errors v0.9.1
+	github.com/rs/cors v1.11.1
 	github.com/toorop/go-bitcoind v0.0.0-20220915123850-908a837670e0
 	go.starlark.net v0.0.0-20230612165344-9532f5667272
 	golang.org/x/oauth2 v0.15.0
@@ -36,7 +38,6 @@ require (
 	cloud.google.com/go/firestore v1.14.0 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
 	cloud.google.com/go/longrunning v0.5.4 // indirect
-	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/aead/siphash v1.0.1 // indirect
 	github.com/andybalholm/brotli v1.0.3 // indirect
