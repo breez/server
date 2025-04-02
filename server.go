@@ -600,13 +600,6 @@ func main() {
 		DBLSPFullList: lspFullList,
 	}
 
-	taprootSwapperConn, err := grpc.Dial(os.Getenv("SWAPD_ADDRESS"), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to connect to swapd gRPC: %v", err)
-	}
-	taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
-	taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
-
 	informationServer := &server{chainApiServers: chainApiServers}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
@@ -621,7 +614,17 @@ func main() {
 	breez.RegisterInactiveNotifierServer(s, &server{})
 	breez.RegisterNodeInfoServer(s, &server{})
 	breez.RegisterSignerServer(s, &signer.Server{})
-	breez.RegisterTaprootSwapperServer(s, taprootSwapperServer)
+
+	skipSwapd, _ := strconv.ParseBool(os.Getenv("NO_SWAPD"))
+	if !skipSwapd {
+		taprootSwapperConn, err := grpc.Dial(os.Getenv("SWAPD_ADDRESS"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Fatalf("Failed to connect to swapd gRPC: %v", err)
+		}
+		taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
+		taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
+		breez.RegisterTaprootSwapperServer(s, taprootSwapperServer)
+	}
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
