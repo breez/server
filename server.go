@@ -377,10 +377,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-	liquidEsploraBaseURL, err := url.Parse(os.Getenv("LIQUID_ESPLORA_API_BASE_URL"))
-	if err != nil {
-		log.Fatalf("Failed to parse %v: %v", os.Getenv("LIQUID_ESPLORA_API_BASE_URL"), err)
-	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/fees/v1/btc-fee-estimates.json", func(w http.ResponseWriter, req *http.Request) {
@@ -389,31 +385,40 @@ func main() {
 	})
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
-	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
-	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
-	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/fee-estimates"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/server_recipient"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/status"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/server_recipient"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v2/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/hash"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/height"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/header"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/txids"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/status"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block-height/{height}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+
+	skipLiquid, _ := strconv.ParseBool(os.Getenv("NO_LIQUID"))
+	if !skipLiquid {
+		liquidEsploraBaseURL, err := url.Parse(os.Getenv("LIQUID_ESPLORA_API_BASE_URL"))
+		if err != nil {
+			log.Fatalf("Failed to parse %v: %v", os.Getenv("LIQUID_ESPLORA_API_BASE_URL"), err)
+		}
+		broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
+		mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
+		simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/fee-estimates"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/server_recipient"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/hex"), liquid.UnauthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/status"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/server_recipient"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v2/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/hash"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/height"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/header"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/txids"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block/{hash}/status"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/block-height/{height}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+		mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	}
+
 	handler := cors.AllowAll().Handler(mux)
 	HTTPServer := &http.Server{
 		Handler:        handler,
