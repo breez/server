@@ -398,6 +398,7 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/raw"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/tx/{txid}/status"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
+	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v1/server_recipient"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/v2/waterfalls"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/hash"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/blocks/tip/height"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
