@@ -438,9 +438,11 @@ func main() {
 		log.Printf("pgConnect error: %v", err)
 	}
 
-	proxyAddress := os.Getenv("PROXY_ADDRESS")
-	s := grpc.NewServer(
-		grpc_middleware.WithUnaryServerChain(
+	interceptors := []grpc.UnaryServerInterceptor{}
+	skipRateLimits, _ := strconv.ParseBool(os.Getenv("NO_RATELIMITS"))
+	if !skipRateLimits {
+		proxyAddress := os.Getenv("PROXY_ADDRESS")
+		interceptors = []grpc.UnaryServerInterceptor{
 			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
@@ -520,6 +522,12 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/RefundSwap", 1000, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.TaprootSwapper/SwapParameters", 100, 1000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.TaprootSwapper/SwapParameters", 1000, 10000, 86400),
+		}
+	}
+
+	s := grpc.NewServer(
+		grpc_middleware.WithUnaryServerChain(
+			interceptors...,
 		),
 	)
 
