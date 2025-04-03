@@ -438,6 +438,8 @@ func main() {
 		log.Printf("pgConnect error: %v", err)
 	}
 
+	lsp.InitLSP()
+
 	interceptors := []grpc.UnaryServerInterceptor{}
 	skipRateLimits, _ := strconv.ParseBool(os.Getenv("NO_RATELIMITS"))
 	if !skipRateLimits {
