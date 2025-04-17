@@ -15,6 +15,7 @@ require (
 	github.com/gomodule/redigo v2.0.1-0.20180627144507-2cd21d9966bf+incompatible
 	github.com/google/uuid v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
+	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/joho/godotenv v1.2.0
@@ -61,6 +62,7 @@ require (
 	github.com/decred/dcrd/crypto/blake256 v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/decred/dcrd/lru v1.0.0 // indirect
+	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fergusstrange/embedded-postgres v1.10.0 // indirect
@@ -191,6 +193,7 @@ require (
 	modernc.org/sqlite v1.20.3 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.0.1 // indirect
+	nhooyr.io/websocket v1.8.6 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
