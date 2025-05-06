@@ -36,6 +36,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -414,14 +415,6 @@ func main() {
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/txs"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/scripthash/{hash}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
 	mux.HandleFunc(fmt.Sprint("GET ", liquidAPIPrefix, "/address/{address}/utxo"), liquid.AuthenticatedHandler(liquidAPIPrefix, simpleProxy, liquidEsploraBaseURL))
-	handler := cors.AllowAll().Handler(mux)
-	HTTPServer := &http.Server{
-		Handler:        handler,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	go HTTPServer.Serve(lisHTTP)
 
 	// Creds file to connect to LND gRPC
 	cp := x509.NewCertPool()
@@ -610,7 +603,42 @@ func main() {
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
+	grpcWebHandler := grpcWebProxyHanlder(s, mux)
+	rootHandler := cors.AllowAll().Handler(grpcWebHandler)
+	HTTPServer := &http.Server{
+		Handler:        rootHandler,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	go HTTPServer.Serve(lisHTTP)
+
 	if err := s.Serve(lisGRPC); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func grpcWebProxyHanlder(grpcServer *grpc.Server, next http.Handler) http.Handler {
+	wrappedGrpc := grpcweb.WrapServer(grpcServer,
+		grpcweb.WithOriginFunc(func(origin string) bool {
+			// Allow all origins for development, restrict as needed for production
+			return true
+		}),
+	)
+
+	// Define the handler that will check if a request is gRPC-Web or standard HTTP
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if this is a gRPC-Web request
+		fmt.Println("grpc handler:", r.URL.Path)
+		if wrappedGrpc.IsGrpcWebRequest(r) || wrappedGrpc.IsAcceptableGrpcCorsRequest(r) {
+			fmt.Println("gRPC-Web request detected")
+			wrappedGrpc.ServeHTTP(w, r)
+			return
+		}
+
+		// Otherwise, handle as a standard HTTP request
+		next.ServeHTTP(w, r)
+	})
+
+	return handler
 }
