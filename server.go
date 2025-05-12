@@ -600,6 +600,10 @@ func main() {
 		swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, redeemer, ssWalletKitClient, ssRouterClient,
 			insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
 		breez.RegisterSwapperServer(s, swapperServer)
+	} else {
+		swapperServer = swapper.NewServer(network, redisPool, client, ssClient, subswapClient, nil, ssWalletKitClient, ssRouterClient,
+			insertSubswapPayment, updateSubswapPreimage, hasFilteredAddress)
+		breez.RegisterSwapperServer(s, swapperServer)
 	}
 
 	supportServer := support.NewServer(sendPaymentFailureNotification, breezStatus, lspFullList)
