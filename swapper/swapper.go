@@ -45,6 +45,7 @@ type Server struct {
 	insertSubswapPayment  func(paymentHash, paymentRequest string, lockheight, confirmationheight int32, utxos []string) error
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error
 	hasFilteredAddress    func(addrs []string) (bool, error)
+	ReverseRoutingNodeID  []byte
 }
 
 func NewServer(
@@ -59,6 +60,10 @@ func NewServer(
 	updateSubswapPreimage func(paymentHash, paymentPreimage string) error,
 	hasFilteredAddress func(addrs []string) (bool, error),
 ) *Server {
+	nodeID, err := hex.DecodeString(os.Getenv("REVERSE_SWAP_ROUTING_NODE"))
+	if err != nil {
+		log.Panicf("GetReverseRoutingNode error in hex.DecodeString(%v): %v", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
+	}
 	return &Server{
 		network:               network,
 		redisPool:             redisPool,
@@ -71,6 +76,7 @@ func NewServer(
 		insertSubswapPayment:  insertSubswapPayment,
 		updateSubswapPreimage: updateSubswapPreimage,
 		hasFilteredAddress:    hasFilteredAddress,
+		ReverseRoutingNodeID:  nodeID,
 	}
 }
 
@@ -383,12 +389,7 @@ func (s *Server) getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 }
 
 func (s *Server) GetReverseRoutingNode(ctx context.Context, in *breez.GetReverseRoutingNodeRequest) (*breez.GetReverseRoutingNodeReply, error) {
-	nodeID, err := hex.DecodeString(os.Getenv("REVERSE_SWAP_ROUTING_NODE"))
-	if err != nil {
-		log.Printf("GetReverseRoutingNode error in hex.DecodeString(%v): %v", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
-		return nil, fmt.Errorf("GetReverseRoutingNode error in hex.DecodeString(%v): %w", os.Getenv("REVERSE_SWAP_ROUTING_NODE"), err)
-	}
-	return &breez.GetReverseRoutingNodeReply{NodeId: nodeID}, nil
+	return &breez.GetReverseRoutingNodeReply{NodeId: s.ReverseRoutingNodeID}, nil
 }
 
 func (s *Server) RedeemSwapPayments() {

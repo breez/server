@@ -532,8 +532,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/AddFundStatus", 1000, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Swapper/GetSwapPayment", 100, 1000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/GetSwapPayment", 1000, 10000, 86400),
-			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Swapper/GetReverseRoutingNode", 100, 1000, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/GetReverseRoutingNode", 1000, 10000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Swapper/GetReverseRoutingNode", 10000, 100000, 7200),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Swapper/GetReverseRoutingNode", 10000, 100000, 7200),
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.CTP/JoinCTPSession", 1000, 100000, 86400),
