@@ -42,7 +42,7 @@ func verifyMessage(msg, pubKey, signature []byte) (bool, error) {
 	}
 
 	// The signature must be fixed-size LN wire format encoded.
-	wireSig, err := lnwire.NewSigFromRawSignature(signature)
+	wireSig, err := lnwire.NewSigFromECDSARawSignature(signature)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode signature: %v", err)
 	}
