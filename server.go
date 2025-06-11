@@ -82,7 +82,9 @@ type server struct {
 	breez.UnimplementedPushTxNotifierServer
 	breez.UnimplementedInactiveNotifierServer
 	breez.UnimplementedNodeInfoServer
-	chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	chainApiServers    []*breez.ChainApiServersReply_ChainAPIServer
+	altChainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	altApiKeys         map[string]bool
 }
 
 // RegisterDevice implements breez.InvoicerServer
@@ -354,6 +356,16 @@ func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
 }
 
 func (s *server) ChainApiServers(ctx context.Context, in *breez.ChainApiServersRequest) (*breez.ChainApiServersReply, error) {
+	apiKeys := auth.GetHeaderKeys(ctx)
+
+	// Return alt chain API servers if the client has an alt key
+	for _, key := range apiKeys {
+		if s.altApiKeys[key] {
+			return &breez.ChainApiServersReply{Servers: s.altChainApiServers}, nil
+		}
+	}
+
+	// Return default chain API servers for regular clients
 	return &breez.ChainApiServersReply{Servers: s.chainApiServers}, nil
 }
 
@@ -389,6 +401,22 @@ func main() {
 	})
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
+
+	var altChainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	if altServersJson := os.Getenv("ALT_CHAIN_API_SERVERS"); altServersJson != "" {
+		json.Unmarshal([]byte(altServersJson), &altChainApiServers)
+	}
+
+	altApiKeys := make(map[string]bool)
+	if altKeysJson := os.Getenv("ALT_API_KEYS"); altKeysJson != "" {
+		var keys []string
+		if err := json.Unmarshal([]byte(altKeysJson), &keys); err == nil {
+			for _, key := range keys {
+				altApiKeys[key] = true
+			}
+		}
+	}
+
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
 	mux.HandleFunc(fmt.Sprint("POST ", liquidAPIPrefix, "/tx"), liquid.BroadcastHandler(chainApiServers, liquidAPIPrefix, broadcastProxy, liquidEsploraBaseURL))
 	simpleProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
@@ -592,7 +620,11 @@ func main() {
 	taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
 	taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
 
-	informationServer := &server{chainApiServers: chainApiServers}
+	informationServer := &server{
+		chainApiServers:    chainApiServers,
+		altChainApiServers: altChainApiServers,
+		altApiKeys:         altApiKeys,
+	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})
