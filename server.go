@@ -387,6 +387,17 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(feeEstimates))
 	})
+	staticFilesAuth := os.Getenv("STATIC_FILES_AUTHENTICATION")
+	staticFilesHandler := http.StripPrefix("/files/", http.FileServer(http.Dir(os.Getenv("STATIC_FILES_DIRECTORY"))))
+	mux.HandleFunc("/files/", func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if !ok || username+":"+password != staticFilesAuth {
+			w.Header().Set("WWW-Authenticate", `Basic realm="files"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		staticFilesHandler.ServeHTTP(w, r)
+	})
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
