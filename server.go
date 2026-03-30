@@ -41,6 +41,9 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
+	"github.com/go-git/go-billy/v6/osfs"
+	githttp "github.com/go-git/go-git/v6/backend/http"
+	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/rs/cors"
 
 	"golang.org/x/text/message"
@@ -387,17 +390,44 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(feeEstimates))
 	})
+	staticDir := os.Getenv("STATIC_FILES_DIRECTORY")
+	staticFilesPrefix := os.Getenv("STATIC_FILES_PREFIX")
 	staticFilesAuth := os.Getenv("STATIC_FILES_AUTHENTICATION")
-	staticFilesHandler := http.StripPrefix("/files/", http.FileServer(http.Dir(os.Getenv("STATIC_FILES_DIRECTORY"))))
-	mux.HandleFunc("/files/", func(w http.ResponseWriter, r *http.Request) {
-		username, password, ok := r.BasicAuth()
-		if !ok || username+":"+password != staticFilesAuth {
-			w.Header().Set("WWW-Authenticate", `Basic realm="files"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+	staticFilesHandler := http.StripPrefix(staticFilesPrefix+"/", http.FileServer(http.Dir(staticDir)))
+	gitBackend := &githttp.Backend{
+		Loader: transport.NewFilesystemLoader(osfs.New(staticDir), false),
+		Prefix: staticFilesPrefix,
+	}
+	withFilesAuth := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			username, password, ok := r.BasicAuth()
+			if !ok || username+":"+password != staticFilesAuth {
+				w.Header().Set("WWW-Authenticate", `Basic realm="files"`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		isGit := false
+		switch r.Method {
+		case http.MethodGet:
+			service := r.URL.Query().Get("service")
+			isGit = service == "git-upload-pack" || service == "git-receive-pack"
+		case http.MethodPost:
+			contentType := r.Header.Get("Content-Type")
+			isGit = contentType == "application/x-git-upload-pack-request" ||
+				contentType == "application/x-git-receive-pack-request"
 		}
-		staticFilesHandler.ServeHTTP(w, r)
+		if isGit {
+			gitBackend.ServeHTTP(w, r)
+		} else {
+			staticFilesHandler.ServeHTTP(w, r)
+		}
 	})
+	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(gitBackend))
+	mux.Handle(staticFilesPrefix+"/", withFilesAuth(filesHandler))
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
