@@ -409,6 +409,14 @@ func main() {
 			next.ServeHTTP(w, r)
 		})
 	}
+	withoutTimeout := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rc := http.NewResponseController(w)
+			rc.SetReadDeadline(time.Time{})
+			rc.SetWriteDeadline(time.Time{})
+			next.ServeHTTP(w, r)
+		})
+	}
 	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		isGit := false
 		switch r.Method {
@@ -421,12 +429,12 @@ func main() {
 				contentType == "application/x-git-receive-pack-request"
 		}
 		if isGit {
-			gitBackend.ServeHTTP(w, r)
+			withoutTimeout(gitBackend).ServeHTTP(w, r)
 		} else {
 			staticFilesHandler.ServeHTTP(w, r)
 		}
 	})
-	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(gitBackend))
+	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(withoutTimeout(gitBackend)))
 	mux.Handle(staticFilesPrefix+"/", withFilesAuth(filesHandler))
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
