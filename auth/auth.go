@@ -132,12 +132,15 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{
+	claims := jwt.MapClaims{
 		"partner_id": fmt.Sprintf("breez-%s", cert.SerialNumber),
-		"label":      cert.Subject.Organization,
 		"iat":        now.Unix(),
 		"exp":        now.Add(7 * 24 * time.Hour).Unix(),
-	})
+	}
+	if len(cert.Subject.Organization) > 0 {
+		claims["label"] = cert.Subject.Organization[0]
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 	signed, err := token.SignedString(privateKey)
 	if err != nil {
 		log.Printf("token.SignedString error: %v", err)
