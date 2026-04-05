@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
@@ -22,6 +21,15 @@ import (
 type providerCtxKeyType string
 
 const providerCtxKey providerCtxKeyType = "provider"
+
+type certCtxKeyType string
+
+const certCtxKey certCtxKeyType = "cert"
+
+func GetCert(r *http.Request) *x509.Certificate {
+	cert, _ := r.Context().Value(certCtxKey).(*x509.Certificate)
+	return cert
+}
 
 func GetProvider(ctx context.Context) *string {
 	provider, ok := ctx.Value(providerCtxKey).(*string)
@@ -47,7 +55,7 @@ func GetHeaderKeys(ctx context.Context) []string {
 	return keys
 }
 
-func AuthenticatedHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) func(http.ResponseWriter, *http.Request) {
+func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.ResponseWriter, *http.Request) {
 	CACertBlock, _ := pem.Decode([]byte(os.Getenv("BREEZ_CA_CERT")))
 	if CACertBlock == nil {
 		log.Fatal("Breez CA cert invalid")
@@ -94,8 +102,11 @@ func AuthenticatedHandler(prefix string, p *httputil.ReverseProxy, u *url.URL) f
 			return
 		}
 
-		r.Host = u.Host
-		http.StripPrefix(prefix, p).ServeHTTP(w, r)
+		if u != nil {
+			r.Host = u.Host
+		}
+		r = r.WithContext(context.WithValue(r.Context(), certCtxKey, cert))
+		http.StripPrefix(prefix, h).ServeHTTP(w, r)
 	}
 }
 
