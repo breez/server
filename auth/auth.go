@@ -6,12 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -108,6 +111,41 @@ func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.R
 		r = r.WithContext(context.WithValue(r.Context(), certCtxKey, cert))
 		http.StripPrefix(prefix, h).ServeHTTP(w, r)
 	}
+}
+
+func JWTHandler(w http.ResponseWriter, r *http.Request) {
+	cert := GetCert(r)
+	if cert == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	keyPEM := os.Getenv("JWT_PRIVATE_KEY")
+	if keyPEM == "" {
+		log.Printf("JWT_PRIVATE_KEY not set")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	privateKey, err := jwt.ParseEdPrivateKeyFromPEM([]byte(strings.ReplaceAll(keyPEM, `\n`, "\n")))
+	if err != nil {
+		log.Printf("jwt.ParseEdPrivateKeyFromPEM error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	now := time.Now()
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{
+		"partner_id": fmt.Sprintf("breez-%s", cert.SerialNumber),
+		"label":      cert.Subject.Organization,
+		"iat":        now.Unix(),
+		"exp":        now.Add(7 * 24 * time.Hour).Unix(),
+	})
+	signed, err := token.SignedString(privateKey)
+	if err != nil {
+		log.Printf("token.SignedString error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": signed})
 }
 
 func UnaryAuth(prefix, token string) grpc.UnaryServerInterceptor {

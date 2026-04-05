@@ -35,15 +35,15 @@ import (
 	"github.com/breez/server/swapper"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/go-git/go-billy/v6/osfs"
+	githttp "github.com/go-git/go-git/v6/backend/http"
+	"github.com/go-git/go-git/v6/plumbing/transport"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/submarineswaprpc"
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
-	"github.com/go-git/go-billy/v6/osfs"
-	githttp "github.com/go-git/go-git/v6/backend/http"
-	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/rs/cors"
 
 	"golang.org/x/text/message"
@@ -436,6 +436,7 @@ func main() {
 	})
 	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(withoutTimeout(gitBackend)))
 	mux.Handle(staticFilesPrefix+"/", withFilesAuth(filesHandler))
+	mux.HandleFunc("/api/jwt", auth.AuthenticatedHandler("", http.HandlerFunc(auth.JWTHandler), nil))
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
