@@ -125,9 +125,9 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	privateKey, err := jwt.ParseEdPrivateKeyFromPEM([]byte(keyPEM))
+	privateKey, err := jwt.ParseECPrivateKeyFromPEM([]byte(keyPEM))
 	if err != nil {
-		log.Printf("jwt.ParseEdPrivateKeyFromPEM error: %v", err)
+		log.Printf("jwt.ParseECPrivateKeyFromPEM error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -141,7 +141,7 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 	if len(cert.Subject.Organization) > 0 {
 		claims["sub"] = cert.Subject.Organization[0]
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	signed, err := token.SignedString(privateKey)
 	if err != nil {
 		log.Printf("token.SignedString error: %v", err)
