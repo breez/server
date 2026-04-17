@@ -125,9 +125,9 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	privateKey, err := jwt.ParseEdPrivateKeyFromPEM([]byte(keyPEM))
+	privateKey, err := jwt.ParseECPrivateKeyFromPEM([]byte(keyPEM))
 	if err != nil {
-		log.Printf("jwt.ParseEdPrivateKeyFromPEM error: %v", err)
+		log.Printf("jwt.ParseECPrivateKeyFromPEM error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
