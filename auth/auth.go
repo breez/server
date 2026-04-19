@@ -134,12 +134,14 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"aud": "spark-so",
-		"iss": fmt.Sprintf("breez-%s", cert.SerialNumber),
+		"iss": "breez.technology",
 		"iat": now.Unix(),
 		"exp": now.Add(7 * 24 * time.Hour).Unix(),
 	}
 	if len(cert.Subject.Organization) > 0 {
-		claims["sub"] = cert.Subject.Organization[0]
+		claims["sub"] = fmt.Sprintf("%s [%s]", cert.Subject.Organization[0], cert.SerialNumber)
+	} else {
+		claims["sub"] = fmt.Sprintf("[%s]", cert.SerialNumber)
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	signed, err := token.SignedString(privateKey)
