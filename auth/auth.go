@@ -71,6 +71,12 @@ func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.R
 	rootPool := x509.NewCertPool()
 	rootPool.AddCert(CACert)
 
+	crl := make(map[string]struct{})
+
+	for c := range strings.SplitSeq(os.Getenv("BREEZ_CA_CRL"), ",") {
+		crl[c] = struct{}{}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("authorization")
 		if len(authHeader) < 8 || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -105,12 +111,22 @@ func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.R
 			return
 		}
 
+		if _, ok := crl[cert.SerialNumber.String()]; ok {
+			log.Printf("certificate revoked: %s", cert.SerialNumber)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		if u != nil {
 			r.Host = u.Host
 		}
 		r = r.WithContext(context.WithValue(r.Context(), certCtxKey, cert))
 		http.StripPrefix(prefix, h).ServeHTTP(w, r)
 	}
+}
+
+func CRLHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(os.Getenv("BREEZ_CA_CRL")))
 }
 
 func JWTHandler(w http.ResponseWriter, r *http.Request) {

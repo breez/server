@@ -437,6 +437,7 @@ func main() {
 	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(withoutTimeout(gitBackend)))
 	mux.Handle(staticFilesPrefix+"/", withFilesAuth(filesHandler))
 	mux.HandleFunc("/api/jwt", auth.AuthenticatedHandler("", http.HandlerFunc(auth.JWTHandler), nil))
+	mux.HandleFunc("/api/crl", http.HandlerFunc(auth.CRLHandler))
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
 	json.Unmarshal([]byte(os.Getenv("CHAIN_API_SERVERS")), &chainApiServers)
 	broadcastProxy := httputil.NewSingleHostReverseProxy(liquidEsploraBaseURL)
