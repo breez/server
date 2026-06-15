@@ -36,7 +36,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/go-git/go-billy/v6/osfs"
-	githttp "github.com/go-git/go-git/v6/backend/http"
+	"github.com/go-git/go-git/v6/backend"
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/lightningnetwork/lnd/lnrpc"
@@ -408,7 +408,7 @@ func main() {
 	staticFilesPrefix := os.Getenv("STATIC_FILES_PREFIX")
 	staticFilesAuth := os.Getenv("STATIC_FILES_AUTHENTICATION")
 	staticFilesHandler := http.StripPrefix(staticFilesPrefix+"/", http.FileServer(http.Dir(staticDir)))
-	gitBackend := &githttp.Backend{
+	gitBackend := &backend.Backend{
 		Loader: transport.NewFilesystemLoader(osfs.New(staticDir), false),
 		Prefix: staticFilesPrefix,
 	}
