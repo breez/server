@@ -85,7 +85,9 @@ type server struct {
 	breez.UnimplementedPushTxNotifierServer
 	breez.UnimplementedInactiveNotifierServer
 	breez.UnimplementedNodeInfoServer
-	chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
+	chainApiServers  []*breez.ChainApiServersReply_ChainAPIServer
+	orchestraBaseURL string
+	orchestraApiKey  string
 }
 
 // RegisterDevice implements breez.InvoicerServer
@@ -360,6 +362,18 @@ func (s *server) ChainApiServers(ctx context.Context, in *breez.ChainApiServersR
 	return &breez.ChainApiServersReply{Servers: s.chainApiServers}, nil
 }
 
+// OrchestraConfig returns the Flashnet Orchestra (cross-chain) base URL and API
+// key for the calling client. The key is served dynamically so it can be
+// rotated and revoked without an SDK release. A single key is configured today;
+// the request context carries the client's API key (auth.GetHeaderKeys), so
+// per-partner keys can be added here later without an interface change.
+func (s *server) OrchestraConfig(ctx context.Context, in *breez.OrchestraConfigRequest) (*breez.OrchestraConfigReply, error) {
+	return &breez.OrchestraConfigReply{
+		BaseUrl: s.orchestraBaseURL,
+		ApiKey:  s.orchestraApiKey,
+	}, nil
+}
+
 func main() {
 
 	switch os.Getenv("NETWORK") {
@@ -562,6 +576,8 @@ func main() {
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ReceiverInfo", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Information/ChainApiServers", 10000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/ChainApiServers", 100000, 10000000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Information/OrchestraConfig", 10000, 100000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Information/OrchestraConfig", 100000, 10000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 1000, 100000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.FundManager/UpdateChannelPolicy", 100000, 1000000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.FundManager/AddFundInit", 20, 200, 86400),
@@ -643,7 +659,11 @@ func main() {
 	taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
 	taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
 
-	informationServer := &server{chainApiServers: chainApiServers}
+	informationServer := &server{
+		chainApiServers:  chainApiServers,
+		orchestraBaseURL: os.Getenv("ORCHESTRA_BASE_URL"),
+		orchestraApiKey:  os.Getenv("ORCHESTRA_API_KEY"),
+	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)
 	breez.RegisterInvoicerServer(s, &server{})

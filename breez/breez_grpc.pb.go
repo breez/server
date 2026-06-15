@@ -357,6 +357,7 @@ type InformationClient interface {
 	BreezAppVersions(ctx context.Context, in *BreezAppVersionsRequest, opts ...grpc.CallOption) (*BreezAppVersionsReply, error)
 	ReceiverInfo(ctx context.Context, in *ReceiverInfoRequest, opts ...grpc.CallOption) (*ReceiverInfoReply, error)
 	ChainApiServers(ctx context.Context, in *ChainApiServersRequest, opts ...grpc.CallOption) (*ChainApiServersReply, error)
+	OrchestraConfig(ctx context.Context, in *OrchestraConfigRequest, opts ...grpc.CallOption) (*OrchestraConfigReply, error)
 }
 
 type informationClient struct {
@@ -412,6 +413,15 @@ func (c *informationClient) ChainApiServers(ctx context.Context, in *ChainApiSer
 	return out, nil
 }
 
+func (c *informationClient) OrchestraConfig(ctx context.Context, in *OrchestraConfigRequest, opts ...grpc.CallOption) (*OrchestraConfigReply, error) {
+	out := new(OrchestraConfigReply)
+	err := c.cc.Invoke(ctx, "/breez.Information/OrchestraConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InformationServer is the server API for Information service.
 // All implementations must embed UnimplementedInformationServer
 // for forward compatibility
@@ -421,6 +431,7 @@ type InformationServer interface {
 	BreezAppVersions(context.Context, *BreezAppVersionsRequest) (*BreezAppVersionsReply, error)
 	ReceiverInfo(context.Context, *ReceiverInfoRequest) (*ReceiverInfoReply, error)
 	ChainApiServers(context.Context, *ChainApiServersRequest) (*ChainApiServersReply, error)
+	OrchestraConfig(context.Context, *OrchestraConfigRequest) (*OrchestraConfigReply, error)
 	mustEmbedUnimplementedInformationServer()
 }
 
@@ -442,6 +453,9 @@ func (UnimplementedInformationServer) ReceiverInfo(context.Context, *ReceiverInf
 }
 func (UnimplementedInformationServer) ChainApiServers(context.Context, *ChainApiServersRequest) (*ChainApiServersReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChainApiServers not implemented")
+}
+func (UnimplementedInformationServer) OrchestraConfig(context.Context, *OrchestraConfigRequest) (*OrchestraConfigReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OrchestraConfig not implemented")
 }
 func (UnimplementedInformationServer) mustEmbedUnimplementedInformationServer() {}
 
@@ -546,6 +560,24 @@ func _Information_ChainApiServers_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Information_OrchestraConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OrchestraConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InformationServer).OrchestraConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/breez.Information/OrchestraConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InformationServer).OrchestraConfig(ctx, req.(*OrchestraConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Information_ServiceDesc is the grpc.ServiceDesc for Information service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -572,6 +604,10 @@ var Information_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChainApiServers",
 			Handler:    _Information_ChainApiServers_Handler,
+		},
+		{
+			MethodName: "OrchestraConfig",
+			Handler:    _Information_OrchestraConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
