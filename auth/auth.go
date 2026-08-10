@@ -132,18 +132,19 @@ func CRLHandler(w http.ResponseWriter, r *http.Request) {
 func JWTHandler(w http.ResponseWriter, r *http.Request) {
 	cert := GetCert(r)
 	if cert == nil {
+		log.Printf("JWTHandler: no cert")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	keyPEM := os.Getenv("JWT_PRIVATE_KEY")
 	if keyPEM == "" {
-		log.Printf("JWT_PRIVATE_KEY not set")
+		log.Printf("JWTHandler: JWT_PRIVATE_KEY not set")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	privateKey, err := jwt.ParseECPrivateKeyFromPEM([]byte(keyPEM))
 	if err != nil {
-		log.Printf("jwt.ParseECPrivateKeyFromPEM error: %v", err)
+		log.Printf("JWTHandler: jwt.ParseECPrivateKeyFromPEM error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -162,10 +163,11 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	signed, err := token.SignedString(privateKey)
 	if err != nil {
-		log.Printf("token.SignedString error: %v", err)
+		log.Printf("JWTHandler: token.SignedString error: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	log.Printf("JWTHandler: sent jwt %s", token.Raw)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": signed})
 }
