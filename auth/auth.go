@@ -149,7 +149,7 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"aud": []string{"spark-so", "spark-ssp"},
+		"aud": "spark-so",
 		"iss": "breez.technology",
 		"iat": now.Unix(),
 		"exp": now.Add(7 * 24 * time.Hour).Unix(),
