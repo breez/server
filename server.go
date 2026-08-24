@@ -275,11 +275,6 @@ func (s *server) RedeemRemovedFunds(ctx context.Context, in *breez.RedeemRemoved
 
 // RegisterDevice implements breez.InvoicerServer
 func (s *server) Order(ctx context.Context, in *breez.OrderRequest) (*breez.OrderReply, error) {
-	log.Printf("Order a card for: %#v", *in)
-	err := sendCardOrderNotification(in)
-	if err != nil {
-		log.Printf("Error in sendCardOrderNotification: %v", err)
-	}
 	return &breez.OrderReply{}, nil
 }
 

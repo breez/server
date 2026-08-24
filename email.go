@@ -79,43 +79,6 @@ func sendEmail(to, cc, from, content, subject string) error {
 	return nil
 }
 
-func sendCardOrderNotification(in *breez.OrderRequest) error {
-
-	var html bytes.Buffer
-
-	tpl := `
-	<div>FullName: {{ .FullName }}</div>
-	<div>Address: {{ .Address }}</div>
-	<div>City: {{ .City }}</div>
-	<div>State: {{ .State }}</div>
-	<div>Zip: {{ .Zip }}</div>
-	<div>Country: {{ .Country }}</div>
-	<div>Email: {{ .Email }}</div>
-	`
-	t, err := template.New("OrderCardEmail").Parse(tpl)
-	if err != nil {
-		return err
-	}
-
-	if err := t.Execute(&html, in); err != nil {
-		return err
-	}
-
-	err = sendEmail(
-		os.Getenv("CARD_NOTIFICATION_TO"),
-		os.Getenv("CARD_NOTIFICATION_CC"),
-		os.Getenv("CARD_NOTIFICATION_FROM"),
-		html.String(),
-		"Card Order",
-	)
-	if err != nil {
-		log.Printf("Error sending order card email: %v", err)
-		return err
-	}
-
-	return nil
-}
-
 func sendPaymentFailureNotification(in *breez.ReportPaymentFailureRequest, keys []string) error {
 	var html bytes.Buffer
 
