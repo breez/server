@@ -39,9 +39,6 @@ func ensureOnChainPaymentSent(payReqHash string) (string, error) {
 }
 
 func sendCoinsForReceivedPayment(payReqHash string) (string, error) {
-	redisConn := redisPool.Get()
-	defer redisConn.Close()
-
 	removeFundRequest, err := getKeyFields(payReqHash)
 	if err != nil {
 		log.Printf("error querying payment request hash, %v", err)

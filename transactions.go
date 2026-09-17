@@ -160,20 +160,29 @@ func handleTransaction(tx *lnrpc.Transaction) error {
 }
 
 func registerTransacionConfirmation(txID, token, notifyType string) error {
+	registrationKey, err := doRegisterTransacionConfirmation(txID, token, notifyType)
+	if err != nil {
+		return err
+	}
+	err = setKeyExpiration(registrationKey, transactionNotificationExpiry)
+	return err
+}
+
+func doRegisterTransacionConfirmation(txID, token, notifyType string) (string, error) {
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
 	registrationKey := fmt.Sprintf("tx-notify-%v", txID)
 	registrationData := map[string]string{"token": token, "type": notifyType}
 	marshalled, err := json.Marshal(registrationData)
 	if err != nil {
-		return err
+		return "", err
 	}
 	_, err = redisConn.Do("SADD", registrationKey, string(marshalled))
 	if err != nil {
-		return err
+		return "", err
 	}
-	err = setKeyExpiration(registrationKey, transactionNotificationExpiry)
-	return err
+
+	return registrationKey, nil
 }
 
 func handleTransactionNotifications(tx *lnrpc.Transaction) error {
@@ -229,15 +238,13 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 		}
 		if n > 0 {
 			if tx.NumConfirmations > 0 {
-				err = handleTransactionAddress(tx, i)
+				err = handleTransactionAddress(tx, i, redisConn)
 				if err != nil {
 					return err
 				}
 				go notifyClientTransaction(tx, i, "Action Required", "Breez", "Received funds are now confirmed. Please open the app to complete your transaction.", true)
 				break // There is only one address concerning us per transaction
 			} else {
-				redisConn := redisPool.Get()
-				defer redisConn.Close()
 				_, err := redisConn.Do("HMSET", "input-address:"+tx.DestAddresses[i],
 					"utx:TxHash", tx.TxHash,
 					"utx:Amount", tx.Amount,
@@ -258,18 +265,9 @@ func handleTransactionAddreses(tx *lnrpc.Transaction) error {
 func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body string, delete bool) {
 	key := tx.TxHash + "-notification"
 	_, _, _ = txNotificationGroup.Do(key, func() (interface{}, error) {
-		redisConn := redisPool.Get()
-		defer redisConn.Close()
-		tokens, err := redis.Strings(redisConn.Do("SMEMBERS", "input-address-notification:"+tx.DestAddresses[index]))
+		tokens, data, err := getTxNotificationData(tx, index, msg)
 		if err != nil {
-			log.Println("notifyUnconfirmed error:", err)
 			return nil, nil
-		}
-		data := map[string]string{
-			"msg":     msg,
-			"tx":      tx.TxHash,
-			"address": tx.DestAddresses[index],
-			"value":   strconv.FormatInt(tx.Amount, 10),
 		}
 
 		for _, tok := range tokens {
@@ -277,31 +275,54 @@ func notifyClientTransaction(tx *lnrpc.Transaction, index int, msg, title, body 
 			log.Println("Error in send:", err)
 			unregistered := err != nil && isUnregisteredError(err)
 			if unregistered || delete {
-				_, err = redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tok)
-				if err != nil {
-					log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tok, err)
-				}
-
-				card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
-				if err != nil {
-					log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
-				} else {
-					if card == 0 {
-						_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
-						if err != nil {
-							log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
-						}
-					}
-				}
+				unregisterTxNotification(tx, index, tok)
 			}
 		}
 		return nil, nil
 	})
 }
 
-func handleTransactionAddress(tx *lnrpc.Transaction, index int) error {
+func getTxNotificationData(tx *lnrpc.Transaction, index int, msg string) ([]string, map[string]string, error) {
 	redisConn := redisPool.Get()
 	defer redisConn.Close()
+	tokens, err := redis.Strings(redisConn.Do("SMEMBERS", "input-address-notification:"+tx.DestAddresses[index]))
+	if err != nil {
+		log.Println("notifyUnconfirmed error:", err)
+		return nil, nil, err
+	}
+	data := map[string]string{
+		"msg":     msg,
+		"tx":      tx.TxHash,
+		"address": tx.DestAddresses[index],
+		"value":   strconv.FormatInt(tx.Amount, 10),
+	}
+
+	return tokens, data, nil
+}
+
+func unregisterTxNotification(tx *lnrpc.Transaction, index int, tok string) {
+	redisConn := redisPool.Get()
+	defer redisConn.Close()
+
+	_, err := redisConn.Do("SREM", "input-address-notification:"+tx.DestAddresses[index], tok)
+	if err != nil {
+		log.Printf("Error in notifyClientTransaction (SREM); set:%v member:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], tok, err)
+	}
+
+	card, err := redis.Int(redisConn.Do("SCARD", "input-address-notification:"+tx.DestAddresses[index]))
+	if err != nil {
+		log.Printf("Error in notifyClientTransaction (SCARD); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+	} else {
+		if card == 0 {
+			_, err = redisConn.Do("DEL", "input-address-notification:"+tx.DestAddresses[index])
+			if err != nil {
+				log.Printf("Error in notifyClientTransaction (DEL); set:%v error:%v", "input-address-notification:"+tx.DestAddresses[index], err)
+			}
+		}
+	}
+}
+
+func handleTransactionAddress(tx *lnrpc.Transaction, index int, redisConn redis.Conn) error {
 	_, err := redisConn.Do("HMSET", "input-address:"+tx.DestAddresses[index],
 		"tx:TxHash", tx.TxHash,
 		"tx:Amount", tx.Amount,
