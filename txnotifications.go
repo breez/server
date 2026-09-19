@@ -67,10 +67,6 @@ func registerPastBoltzReverseSwapTxNotifications() error {
 	return rows.Err()
 }
 
-func (s *server) RegisterTxNotification(ctx context.Context, in *breez.PushTxNotificationRequest) (*breez.PushTxNotificationResponse, error) {
-	return registerTxNotification(nil, in)
-}
-
 func hashString(h []byte) string {
 	ch, err := chainhash.NewHash(h)
 	if err != nil {
@@ -149,6 +145,11 @@ func registerTxNotification(u *uuid.UUID, in *breez.PushTxNotificationRequest) (
 			if err != nil {
 				log.Printf("stream.Recv(): %v", err)
 				return
+			}
+			if confEvent.GetConf() == nil {
+				//Reorg or empty event, keep waiting for the confirmation.
+				log.Printf("non-confirmation event while watching tx %x, continuing", confRequest.Txid)
+				continue
 			}
 			confDetails = *confEvent.GetConf()
 			log.Printf("UUID: %v block: (%v) %v, index: %v rawTX:%x", u,

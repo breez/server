@@ -42,6 +42,9 @@ func pgConnect() error {
 	if err != nil {
 		return fmt.Errorf("pgxpool.New(%v): %w", os.Getenv("DATABASE_URL"), err)
 	}
+	if err := pgxPool.Ping(context.Background()); err != nil {
+		return fmt.Errorf("pgxPool.Ping: %w", err)
+	}
 	return nil
 }
 

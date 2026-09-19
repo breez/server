@@ -19,7 +19,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"strconv"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -33,12 +33,9 @@ import (
 	"github.com/breez/server/support"
 	"github.com/breez/server/swapd"
 	"github.com/breez/server/swapper"
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/go-git/go-billy/v6/osfs"
-	"github.com/go-git/go-git/v6/backend"
-	"github.com/go-git/go-git/v6/plumbing/transport"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/chainrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/routerrpc"
@@ -46,7 +43,6 @@ import (
 	"github.com/lightningnetwork/lnd/lnrpc/walletrpc"
 	"github.com/rs/cors"
 
-	"golang.org/x/text/message"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -60,7 +56,6 @@ import (
 const (
 	imageDimensionLength = 200
 	channelAmount        = 1000000
-	minRemoveFund        = 50000
 	liquidAPIPrefix      = "/liquid/api"
 )
 
@@ -105,29 +100,6 @@ func (s *server) RegisterDevice(ctx context.Context, in *breez.RegisterRequest) 
 		}
 	}
 	return &breez.RegisterReply{BreezID: in.DeviceID}, nil
-}
-
-func (s *server) SendInvoice(ctx context.Context, in *breez.PaymentRequest) (*breez.InvoiceReply, error) {
-
-	notificationData := map[string]string{
-		"msg":             "Payment request",
-		"payee":           in.Payee,
-		"amount":          strconv.FormatInt(in.Amount, 10),
-		"payment_request": in.Invoice,
-	}
-
-	err := notifyAlertMessage(
-		in.Payee,
-		"is requesting you to pay "+strconv.FormatInt(in.Amount, 10)+" Sat",
-		notificationData,
-		in.BreezID)
-
-	if err != nil {
-		log.Println(err)
-		return &breez.InvoiceReply{Error: err.Error()}, err
-	}
-
-	return &breez.InvoiceReply{Error: ""}, nil
 }
 
 func (s *server) UploadLogo(ctx context.Context, in *breez.UploadFileRequest) (*breez.UploadFileReply, error) {
@@ -190,34 +162,6 @@ func (s *server) UploadLogo(ctx context.Context, in *breez.UploadFileRequest) (*
 	return &breez.UploadFileReply{Url: objAttrs.MediaLink}, nil
 }
 
-// Workaround until LND PR #1595 is merged
-func (s *server) UpdateChannelPolicy(ctx context.Context, in *breez.UpdateChannelPolicyRequest) (*breez.UpdateChannelPolicyReply, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	nodeChannels, err := getNodeChannels(in.PubKey)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, c := range nodeChannels {
-		var channelPoint lnrpc.ChannelPoint
-
-		outputIndex, err := strconv.ParseUint(strings.Split(c.ChannelPoint, ":")[1], 10, 32)
-		if err != nil {
-			return nil, err
-		}
-
-		channelPoint.OutputIndex = uint32(outputIndex)
-		channelPoint.FundingTxid = &lnrpc.ChannelPoint_FundingTxidStr{FundingTxidStr: strings.Split(c.ChannelPoint, ":")[0]}
-
-		client.UpdateChannelPolicy(clientCtx, &lnrpc.PolicyUpdateRequest{BaseFeeMsat: 1000, FeeRate: 0.000001, TimeLockDelta: 144, Scope: &lnrpc.PolicyUpdateRequest_ChanPoint{ChanPoint: &channelPoint}})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &breez.UpdateChannelPolicyReply{}, nil
-}
-
 func (s *server) AddFundInit(ctx context.Context, in *breez.AddFundInitRequest) (*breez.AddFundInitReply, error) {
 	return swapperServer.AddFundInitLegacy(ctx, in)
 }
@@ -228,49 +172,6 @@ func (s *server) AddFundStatus(ctx context.Context, in *breez.AddFundStatusReque
 
 func (s *server) GetSwapPayment(ctx context.Context, in *breez.GetSwapPaymentRequest) (*breez.GetSwapPaymentReply, error) {
 	return swapperServer.GetSwapPaymentLegacy(ctx, in)
-}
-
-func (s *server) RemoveFund(ctx context.Context, in *breez.RemoveFundRequest) (*breez.RemoveFundReply, error) {
-	address := in.Address
-	amount := in.Amount
-	if address == "" {
-		return nil, errors.New("Destination address must not be empty")
-	}
-
-	_, err := btcutil.DecodeAddress(address, network)
-	if err != nil {
-		log.Println("Destination address must be a valid bitcoin address")
-		return nil, err
-	}
-
-	if amount <= 0 {
-		return nil, errors.New("Amount must be positive")
-	}
-
-	if amount < minRemoveFund {
-		p := message.NewPrinter(message.MatchLanguage("en"))
-		satFormatted := strings.Replace(p.Sprintf("%d", minRemoveFund), ",", " ", 1)
-		btcFormatted := strconv.FormatFloat(float64(minRemoveFund)/float64(100000000), 'f', -1, 64)
-		errorStr := fmt.Sprintf("Removed funds must be more than  %v BTC (%v Sat).", btcFormatted, satFormatted)
-		return &breez.RemoveFundReply{ErrorMessage: errorStr}, nil
-	}
-
-	paymentRequest, err := createRemoveFundPaymentRequest(amount, address)
-	if err != nil {
-		log.Printf("createRemoveFundPaymentRequest: failed %v", err)
-		return nil, err
-	}
-
-	return &breez.RemoveFundReply{PaymentRequest: paymentRequest}, nil
-}
-
-func (s *server) RedeemRemovedFunds(ctx context.Context, in *breez.RedeemRemovedFundsRequest) (*breez.RedeemRemovedFundsReply, error) {
-	txID, err := ensureOnChainPaymentSent(in.Paymenthash)
-	if err != nil {
-		log.Printf("ReceiveOnChainPayment failed: %v", err)
-		return nil, err
-	}
-	return &breez.RedeemRemovedFundsReply{Txid: txID}, nil
 }
 
 // RegisterDevice implements breez.InvoicerServer
@@ -294,23 +195,6 @@ func (s *server) InactiveNotify(ctx context.Context, in *breez.InactiveNotifyReq
 		return nil, err
 	}
 	return &breez.InactiveNotifyResponse{}, nil
-}
-
-// JoinCTPSession is used by both payer/payee to join a CTP session.
-func (s *server) JoinCTPSession(ctx context.Context, in *breez.JoinCTPSessionRequest) (*breez.JoinCTPSessionResponse, error) {
-	sessionID, expiry, err := joinSession(in.SessionID, in.NotificationToken, in.PartyName, in.PartyType == breez.JoinCTPSessionRequest_PAYER)
-	if err != nil {
-		return nil, err
-	}
-	return &breez.JoinCTPSessionResponse{SessionID: sessionID, Expiry: expiry}, nil
-}
-
-func (s *server) TerminateCTPSession(ctx context.Context, in *breez.TerminateCTPSessionRequest) (*breez.TerminateCTPSessionResponse, error) {
-	err := terminateSession(in.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	return &breez.TerminateCTPSessionResponse{}, nil
 }
 
 func (s *server) RegisterTransactionConfirmation(ctx context.Context, in *breez.RegisterTransactionConfirmationRequest) (*breez.RegisterTransactionConfirmationResponse, error) {
@@ -338,21 +222,6 @@ func (s *server) RegisterPeriodicSync(ctx context.Context, in *breez.RegisterPer
 	return &breez.RegisterPeriodicSyncResponse{}, nil
 }
 
-func getNodeChannels(nodeID string) ([]*lnrpc.Channel, error) {
-	clientCtx := metadata.AppendToOutgoingContext(context.Background(), "macaroon", os.Getenv("LND_MACAROON_HEX"))
-	listResponse, err := client.ListChannels(clientCtx, &lnrpc.ListChannelsRequest{})
-	if err != nil {
-		return nil, err
-	}
-	var nodeChannels []*lnrpc.Channel
-	for _, channel := range listResponse.Channels {
-		if channel.RemotePubkey == nodeID {
-			nodeChannels = append(nodeChannels, channel)
-		}
-	}
-	return nodeChannels, nil
-}
-
 func (s *server) ChainApiServers(ctx context.Context, in *breez.ChainApiServersRequest) (*breez.ChainApiServersReply, error) {
 	return &breez.ChainApiServersReply{Servers: s.chainApiServers}, nil
 }
@@ -367,6 +236,11 @@ func (s *server) OrchestraConfig(ctx context.Context, in *breez.OrchestraConfigR
 		BaseUrl: s.orchestraBaseURL,
 		ApiKey:  s.orchestraApiKey,
 	}, nil
+}
+
+func recoveryHandler(p interface{}) error {
+	log.Printf("panic recovered in gRPC handler: %v\n%s", p, debug.Stack())
+	return status.Errorf(codes.Internal, "internal error")
 }
 
 func main() {
@@ -399,52 +273,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(feeEstimates))
 	})
-	staticDir := os.Getenv("STATIC_FILES_DIRECTORY")
-	staticFilesPrefix := os.Getenv("STATIC_FILES_PREFIX")
-	staticFilesAuth := os.Getenv("STATIC_FILES_AUTHENTICATION")
-	staticFilesHandler := http.StripPrefix(staticFilesPrefix+"/", http.FileServer(http.Dir(staticDir)))
-	gitBackend := &backend.Backend{
-		Loader: transport.NewFilesystemLoader(osfs.New(staticDir), false),
-		Prefix: staticFilesPrefix,
-	}
-	withFilesAuth := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			username, password, ok := r.BasicAuth()
-			if !ok || username+":"+password != staticFilesAuth {
-				w.Header().Set("WWW-Authenticate", `Basic realm="files"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-	withoutTimeout := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rc := http.NewResponseController(w)
-			rc.SetReadDeadline(time.Time{})
-			rc.SetWriteDeadline(time.Time{})
-			next.ServeHTTP(w, r)
-		})
-	}
-	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		isGit := false
-		switch r.Method {
-		case http.MethodGet:
-			service := r.URL.Query().Get("service")
-			isGit = service == "git-upload-pack" || service == "git-receive-pack"
-		case http.MethodPost:
-			contentType := r.Header.Get("Content-Type")
-			isGit = contentType == "application/x-git-upload-pack-request" ||
-				contentType == "application/x-git-receive-pack-request"
-		}
-		if isGit {
-			withoutTimeout(gitBackend).ServeHTTP(w, r)
-		} else {
-			staticFilesHandler.ServeHTTP(w, r)
-		}
-	})
-	mux.Handle(staticFilesPrefix+".git/", withFilesAuth(withoutTimeout(gitBackend)))
-	mux.Handle(staticFilesPrefix+"/", withFilesAuth(filesHandler))
+
 	mux.HandleFunc("/api/jwt", auth.AuthenticatedHandler("", http.HandlerFunc(auth.JWTHandler), nil))
 	mux.HandleFunc("/api/crl", http.HandlerFunc(auth.CRLHandler))
 	var chainApiServers []*breez.ChainApiServersReply_ChainAPIServer
@@ -530,13 +359,13 @@ func main() {
 
 	err = redisConnect()
 	if err != nil {
-		log.Println("redisConnect error:", err)
+		log.Fatalf("redisConnect error: %v", err)
 	}
 	go deliverSyncNotifications()
 
 	err = pgConnect()
 	if err != nil {
-		log.Printf("pgConnect error: %v", err)
+		log.Fatalf("pgConnect error: %v", err)
 	}
 	go registerPastBoltzReverseSwapTxNotifications()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -551,6 +380,7 @@ func main() {
 	proxyAddress := os.Getenv("PROXY_ADDRESS")
 	s := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
+			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(recoveryHandler)),
 			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),

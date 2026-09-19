@@ -33,7 +33,10 @@ func redisConnect() error {
 		},
 	}
 
-	return nil
+	conn := redisPool.Get()
+	defer conn.Close()
+	_, err = conn.Do("PING")
+	return err
 }
 
 func updateKeyFields(key string, fields map[string]string) error {
