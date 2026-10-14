@@ -167,7 +167,7 @@ func JWTHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	log.Printf("JWTHandler: sent jwt: %s", signed)
+	log.Printf("JWTHandler: sent jwt: %s (serial: %s) to X-Forwarded-For: %s", signed, cert.SerialNumber, r.Header.Get("X-Forwarded-For"))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": signed})
 }
