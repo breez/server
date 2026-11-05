@@ -80,9 +80,10 @@ type server struct {
 	breez.UnimplementedPushTxNotifierServer
 	breez.UnimplementedInactiveNotifierServer
 	breez.UnimplementedNodeInfoServer
-	chainApiServers  []*breez.ChainApiServersReply_ChainAPIServer
-	orchestraBaseURL string
-	orchestraApiKey  string
+	chainApiServers     []*breez.ChainApiServersReply_ChainAPIServer
+	orchestraBaseURL    string
+	orchestraApiKey     string
+	orchestraCustomKeys map[string]string
 }
 
 // RegisterDevice implements breez.InvoicerServer
@@ -228,13 +229,20 @@ func (s *server) ChainApiServers(ctx context.Context, in *breez.ChainApiServersR
 
 // OrchestraConfig returns the Flashnet Orchestra (cross-chain) base URL and API
 // key for the calling client. The key is served dynamically so it can be
-// rotated and revoked without an SDK release. A single key is configured today;
-// the request context carries the client's API key (auth.GetHeaderKeys), so
-// per-partner keys can be added here later without an interface change.
+// rotated and revoked without an SDK release. Unauthenticated callers receive
+// the default key. Callers that send a valid Breez client certificate (base64
+// DER) in the gRPC authorization metadata get the custom key mapped to the
+// certificate serial, if one is configured.
 func (s *server) OrchestraConfig(ctx context.Context, in *breez.OrchestraConfigRequest) (*breez.OrchestraConfigReply, error) {
+	apiKey := s.orchestraApiKey
+	if serial, ok := auth.ClientSerial(ctx); ok {
+		if custom, found := s.orchestraCustomKeys[serial]; found {
+			apiKey = custom
+		}
+	}
 	return &breez.OrchestraConfigReply{
 		BaseUrl: s.orchestraBaseURL,
-		ApiKey:  s.orchestraApiKey,
+		ApiKey:  apiKey,
 	}, nil
 }
 
@@ -383,6 +391,7 @@ func main() {
 			grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(recoveryHandler)),
 			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
+			auth.UnaryClientCertSerial("/breez.Information/OrchestraConfig"),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/SendInvoice", 3, 100, 86400),
@@ -484,10 +493,18 @@ func main() {
 	taprootSwapperClient := breez.NewTaprootSwapperClient(taprootSwapperConn)
 	taprootSwapperServer := swapd.NewServer(taprootSwapperClient)
 
+	orchestraCustomKeys := make(map[string]string)
+	if customKeysJSON := os.Getenv("ORCHESTRA_CUSTOM_API_KEYS"); customKeysJSON != "" {
+		if err := json.Unmarshal([]byte(customKeysJSON), &orchestraCustomKeys); err != nil {
+			log.Fatalf("Failed to parse ORCHESTRA_CUSTOM_API_KEYS: %v", err)
+		}
+	}
+
 	informationServer := &server{
-		chainApiServers:  chainApiServers,
-		orchestraBaseURL: os.Getenv("ORCHESTRA_BASE_URL"),
-		orchestraApiKey:  os.Getenv("ORCHESTRA_API_KEY"),
+		chainApiServers:     chainApiServers,
+		orchestraBaseURL:    os.Getenv("ORCHESTRA_BASE_URL"),
+		orchestraApiKey:     os.Getenv("ORCHESTRA_API_KEY"),
+		orchestraCustomKeys: orchestraCustomKeys,
 	}
 	breez.RegisterChannelOpenerServer(s, lspServer)
 	breez.RegisterPaymentNotifierServer(s, lspServer)

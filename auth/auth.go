@@ -29,6 +29,91 @@ type certCtxKeyType string
 
 const certCtxKey certCtxKeyType = "cert"
 
+var (
+	breezCACert *x509.Certificate
+	breezCAPool *x509.CertPool
+	breezCRL    map[string]struct{}
+)
+
+func init() {
+	CACertBlock, _ := pem.Decode([]byte(os.Getenv("BREEZ_CA_CERT")))
+	if CACertBlock == nil {
+		log.Fatal("Breez CA cert invalid")
+	}
+	var err error
+	breezCACert, err = x509.ParseCertificate(CACertBlock.Bytes)
+	if err != nil {
+		log.Fatal("Cannot parse CA cert:", err)
+	}
+
+	breezCAPool = x509.NewCertPool()
+	breezCAPool.AddCert(breezCACert)
+
+	breezCRL = make(map[string]struct{})
+	for c := range strings.SplitSeq(os.Getenv("BREEZ_CA_CRL"), ",") {
+		if c != "" {
+			breezCRL[c] = struct{}{}
+		}
+	}
+}
+
+func verifyClientCert(cert *x509.Certificate) error {
+	chains, err := cert.Verify(x509.VerifyOptions{
+		Roots: breezCAPool,
+	})
+	if err != nil {
+		return err
+	}
+	if len(chains) != 1 || len(chains[0]) != 2 || !chains[0][0].Equal(cert) || !chains[0][1].Equal(breezCACert) {
+		return fmt.Errorf("cert verification error")
+	}
+	if _, ok := breezCRL[cert.SerialNumber.String()]; ok {
+		return fmt.Errorf("certificate revoked: %s", cert.SerialNumber)
+	}
+	return nil
+}
+
+type serialCtxKeyType string
+
+const serialCtxKey serialCtxKeyType = "client-serial"
+
+func ClientSerial(ctx context.Context) (string, bool) {
+	serial, ok := ctx.Value(serialCtxKey).(string)
+	return serial, ok
+}
+
+func UnaryClientCertSerial(prefix string) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if !strings.HasPrefix(info.FullMethod, prefix) {
+			return handler(ctx, req)
+		}
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			for _, auth := range md.Get("authorization") {
+				if !strings.HasPrefix(auth, "Bearer ") {
+					continue
+				}
+				block, err := base64.StdEncoding.DecodeString(auth[7:])
+				if err != nil {
+					log.Printf("UnaryClientCertSerial: base64 decode error: %v", err)
+					continue
+				}
+				cert, err := x509.ParseCertificate(block)
+				if err != nil {
+					log.Printf("UnaryClientCertSerial: parse cert error: %v", err)
+					continue
+				}
+				if err := verifyClientCert(cert); err != nil {
+					log.Printf("UnaryClientCertSerial: verify error: %v", err)
+					continue
+				}
+				ctx = context.WithValue(ctx, serialCtxKey, cert.SerialNumber.String())
+				break
+			}
+		}
+		return handler(ctx, req)
+	}
+}
+
 func GetCert(r *http.Request) *x509.Certificate {
 	cert, _ := r.Context().Value(certCtxKey).(*x509.Certificate)
 	return cert
@@ -59,24 +144,6 @@ func GetHeaderKeys(ctx context.Context) []string {
 }
 
 func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.ResponseWriter, *http.Request) {
-	CACertBlock, _ := pem.Decode([]byte(os.Getenv("BREEZ_CA_CERT")))
-	if CACertBlock == nil {
-		log.Fatal("Breez CA cert invalid")
-	}
-	CACert, err := x509.ParseCertificate(CACertBlock.Bytes)
-	if err != nil {
-		log.Fatal("Cannot parse CA cert:", err)
-	}
-
-	rootPool := x509.NewCertPool()
-	rootPool.AddCert(CACert)
-
-	crl := make(map[string]struct{})
-
-	for c := range strings.SplitSeq(os.Getenv("BREEZ_CA_CRL"), ",") {
-		crl[c] = struct{}{}
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("authorization")
 		if len(authHeader) < 8 || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -97,22 +164,8 @@ func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.R
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		chains, err := cert.Verify(x509.VerifyOptions{
-			Roots: rootPool,
-		})
-		if err != nil {
-			log.Printf("cert.Verify error: %v", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if len(chains) != 1 || len(chains[0]) != 2 || !chains[0][0].Equal(cert) || !chains[0][1].Equal(CACert) {
-			log.Printf("cert verification error")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if _, ok := crl[cert.SerialNumber.String()]; ok {
-			log.Printf("certificate revoked: %s", cert.SerialNumber)
+		if err := verifyClientCert(cert); err != nil {
+			log.Printf("verifyClientCert error: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
