@@ -73,6 +73,7 @@ func UnaryRateLimiter(redisPool *redis.Pool, prefix, fullMethod string, maxBurst
 		}
 		blocked, limit, remaining, retryAfter, reset := getThrottle(redisPool, prefix+"/method"+info.FullMethod, maxBurst, tokens, seconds)
 		if blocked {
+			log.Printf("Rate limit exceeded for method %s blocked=%t limit=%d remaining=%d retryAfter=%d reset=%d maxBurst=%d tokens=%d seconds=%d", info.FullMethod, blocked, limit, remaining, retryAfter, reset, maxBurst, tokens, seconds)
 			_, _, _, _ = limit, remaining, retryAfter, reset //Need to add headers
 			return nil, status.Errorf(codes.ResourceExhausted, "%s is rejected by ratelimit, please retry later.", info.FullMethod)
 		}
@@ -88,6 +89,7 @@ func PerIPUnaryRateLimiter(redisPool *redis.Pool, proxyAddress, prefix, fullMeth
 		srcIP := getIP(ctx, proxyAddress)
 		blocked, limit, remaining, retryAfter, reset := getThrottle(redisPool, prefix+"/ip/"+srcIP+"/method"+info.FullMethod, maxBurst, tokens, seconds)
 		if blocked {
+			log.Printf("Rate limit exceeded for method %s ip=%s blocked=%t limit=%d remaining=%d retryAfter=%d reset=%d maxBurst=%d tokens=%d seconds=%d", info.FullMethod, srcIP, blocked, limit, remaining, retryAfter, reset, maxBurst, tokens, seconds)
 			_, _, _, _ = limit, remaining, retryAfter, reset //Need to add headers
 			return nil, status.Errorf(codes.ResourceExhausted, "%s is rejected by ratelimit, please retry later.", info.FullMethod)
 		}

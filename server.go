@@ -455,8 +455,8 @@ func main() {
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 10000, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.NodeInfo/GetNodeInfo", 1000, 100000, 86400),
 
-			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Signer/SignUrl", 10, 10000, 86400),
-			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 1000, 1000, 86400),
+			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Signer/SignUrl", 10000, 10000, 86400),
+			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Signer/SignUrl", 10000, 100000, 86400),
 
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Support/ReportPaymentFailure", 10, 20, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Support/ReportPaymentFailure", 100, 10000, 86400),
