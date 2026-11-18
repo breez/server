@@ -683,6 +683,7 @@ type SignUrlRequest struct {
 	QueryString   string                 `protobuf:"bytes,2,opt,name=queryString,json=query_string,proto3" json:"queryString,omitempty"`
 	Ipv4          string                 `protobuf:"bytes,3,opt,name=ipv4,proto3" json:"ipv4,omitempty"`
 	Ipv6          string                 `protobuf:"bytes,4,opt,name=ipv6,proto3" json:"ipv6,omitempty"`
+	Pubkey        string                 `protobuf:"bytes,5,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -741,6 +742,13 @@ func (x *SignUrlRequest) GetIpv4() string {
 func (x *SignUrlRequest) GetIpv6() string {
 	if x != nil {
 		return x.Ipv6
+	}
+	return ""
+}
+
+func (x *SignUrlRequest) GetPubkey() string {
+	if x != nil {
+		return x.Pubkey
 	}
 	return ""
 }
@@ -4702,12 +4710,13 @@ const file_breez_proto_rawDesc = "" +
 	"\x16SwapParametersResponse\x125\n" +
 	"\n" +
 	"parameters\x18\x01 \x01(\v2\x15.breez.SwapParametersR\n" +
-	"parameters\"v\n" +
+	"parameters\"\x8e\x01\n" +
 	"\x0eSignUrlRequest\x12\x19\n" +
 	"\abaseUrl\x18\x01 \x01(\tR\bbase_url\x12!\n" +
 	"\vqueryString\x18\x02 \x01(\tR\fquery_string\x12\x12\n" +
 	"\x04ipv4\x18\x03 \x01(\tR\x04ipv4\x12\x12\n" +
-	"\x04ipv6\x18\x04 \x01(\tR\x04ipv6\",\n" +
+	"\x04ipv6\x18\x04 \x01(\tR\x04ipv6\x12\x16\n" +
+	"\x06pubkey\x18\x05 \x01(\tR\x06pubkey\",\n" +
 	"\x0fSignUrlResponse\x12\x19\n" +
 	"\afullUrl\x18\x01 \x01(\tR\bfull_url\"C\n" +
 	"\x15InactiveNotifyRequest\x12\x16\n" +

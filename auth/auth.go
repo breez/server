@@ -32,7 +32,7 @@ const certCtxKey certCtxKeyType = "cert"
 var (
 	breezCACert *x509.Certificate
 	breezCAPool *x509.CertPool
-	breezCRL    map[string]struct{}
+	breezCRL    map[string]map[string]struct{}
 )
 
 func init() {
@@ -49,15 +49,50 @@ func init() {
 	breezCAPool = x509.NewCertPool()
 	breezCAPool.AddCert(breezCACert)
 
-	breezCRL = make(map[string]struct{})
-	for c := range strings.SplitSeq(os.Getenv("BREEZ_CA_CRL"), ",") {
-		if c != "" {
-			breezCRL[c] = struct{}{}
+	breezCRL = make(map[string]map[string]struct{})
+	crlJSON := os.Getenv("BREEZ_CA_CRL")
+	if crlJSON != "" {
+		var raw map[string]string
+		if err := json.Unmarshal([]byte(crlJSON), &raw); err != nil {
+			log.Fatal("Cannot parse BREEZ_CA_CRL:", err)
+		}
+		for path, list := range raw {
+			serials := make(map[string]struct{})
+			for c := range strings.SplitSeq(list, ",") {
+				if c != "" {
+					serials[c] = struct{}{}
+				}
+			}
+			breezCRL[path] = serials
 		}
 	}
 }
 
-func verifyClientCert(cert *x509.Certificate) error {
+func isAncestorPath(ancestor, path string) bool {
+	if ancestor == "" {
+		return false
+	}
+	if ancestor == "/" {
+		return true
+	}
+	if strings.HasSuffix(ancestor, "/") {
+		return strings.HasPrefix(path, ancestor)
+	}
+	return path == ancestor || strings.HasPrefix(path, ancestor+"/")
+}
+
+func isRevoked(serial, path string) bool {
+	for crlPath, serials := range breezCRL {
+		if isAncestorPath(crlPath, path) {
+			if _, ok := serials[serial]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func verifyClientCert(cert *x509.Certificate, path string) error {
 	chains, err := cert.Verify(x509.VerifyOptions{
 		Roots: breezCAPool,
 	})
@@ -67,7 +102,7 @@ func verifyClientCert(cert *x509.Certificate) error {
 	if len(chains) != 1 || len(chains[0]) != 2 || !chains[0][0].Equal(cert) || !chains[0][1].Equal(breezCACert) {
 		return fmt.Errorf("cert verification error")
 	}
-	if _, ok := breezCRL[cert.SerialNumber.String()]; ok {
+	if isRevoked(cert.SerialNumber.String(), path) {
 		return fmt.Errorf("certificate revoked: %s", cert.SerialNumber)
 	}
 	return nil
@@ -102,9 +137,9 @@ func UnaryClientCertSerial(prefix string) grpc.UnaryServerInterceptor {
 					log.Printf("UnaryClientCertSerial: parse cert error: %v", err)
 					continue
 				}
-				if err := verifyClientCert(cert); err != nil {
+				if err := verifyClientCert(cert, info.FullMethod); err != nil {
 					log.Printf("UnaryClientCertSerial: verify error: %v", err)
-					continue
+					return nil, status.Errorf(codes.PermissionDenied, "%v", err)
 				}
 				ctx = context.WithValue(ctx, serialCtxKey, cert.SerialNumber.String())
 				break
@@ -164,7 +199,7 @@ func AuthenticatedHandler(prefix string, h http.Handler, u *url.URL) func(http.R
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if err := verifyClientCert(cert); err != nil {
+		if err := verifyClientCert(cert, "/"); err != nil {
 			log.Printf("verifyClientCert error: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
 			return

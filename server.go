@@ -392,6 +392,7 @@ func main() {
 			auth.UnaryMultiAuth("/breez.PublicChannelOpener/", os.Getenv("PUBLIC_CHANNEL_TOKENS")),
 			auth.UnaryAuth("/breez.InactiveNotifier/", os.Getenv("INACTIVE_NOTIFIER_TOKEN")),
 			auth.UnaryClientCertSerial("/breez.Information/OrchestraConfig"),
+			auth.UnaryClientCertSerial("/breez.Signer/SignUrl"),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/RegisterDevice", 3, 10, 86400),
 			ratelimit.UnaryRateLimiter(redisPool, "rate-limit", "/breez.Invoicer/RegisterDevice", 100, 10000, 86400),
 			ratelimit.PerIPUnaryRateLimiter(redisPool, proxyAddress, "rate-limit", "/breez.Invoicer/SendInvoice", 3, 100, 86400),
