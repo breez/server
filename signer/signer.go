@@ -66,7 +66,7 @@ func externalTransactionID(ctx context.Context, pubkey string) string {
 	} else {
 		parts = append(parts, "")
 	}
-	parts = append(parts, pubkey)
+	parts = append(parts, url.QueryEscape(pubkey))
 	parts = append(parts, strconv.FormatInt(time.Now().UnixNano(), 10))
 	return strings.Join(parts, ",")
 }
@@ -85,7 +85,7 @@ func (s *Server) SignUrl(ctx context.Context, in *breez.SignUrlRequest) (*breez.
 		queryString = queryString + "&allowedIpAddress=" + allowed
 	}
 
-	queryString = queryString + "&externalTransactionId=" + url.QueryEscape(externalTransactionID(ctx, in.Pubkey))
+	queryString = queryString + "&externalTransactionId=" + externalTransactionID(ctx, in.Pubkey)
 
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write([]byte(queryString))
